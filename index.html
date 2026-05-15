@@ -249,6 +249,116 @@
       0%,100% { transform: scale(1); }
       50% { transform: scale(1.3); }
     }
+
+    /* === ТУТОРІАЛ === */
+    .tut-btn {
+      border-color: #27ae60;
+      color: #27ae60;
+      background: rgba(39,174,96,0.08);
+      cursor: pointer;
+      user-select: none;
+    }
+    .tut-btn:hover { background: rgba(39,174,96,0.2); }
+
+    .tut-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      z-index: 9999;
+      align-items: center;
+      justify-content: center;
+    }
+    .tut-overlay.show { display: flex; }
+
+    .tut-modal {
+      background: #0d1830;
+      border: 1px solid #2a5080;
+      border-radius: 12px;
+      width: 560px;
+      max-width: 95vw;
+      max-height: 88vh;
+      overflow-y: auto;
+      padding: 24px;
+      font-size: 0.78rem;
+      line-height: 1.7;
+      color: #c8d8f0;
+      position: relative;
+    }
+
+    .tut-modal h2 {
+      color: #4dd0e1;
+      font-size: 1rem;
+      letter-spacing: 3px;
+      margin-bottom: 16px;
+      text-align: center;
+    }
+
+    .tut-step {
+      background: rgba(10,16,32,0.6);
+      border: 1px solid #1a3050;
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-bottom: 10px;
+    }
+
+    .tut-step-num {
+      display: inline-block;
+      background: #4dd0e1;
+      color: #080d1a;
+      border-radius: 50%;
+      width: 20px; height: 20px;
+      text-align: center;
+      line-height: 20px;
+      font-weight: bold;
+      font-size: 0.7rem;
+      margin-right: 8px;
+      flex-shrink: 0;
+    }
+
+    .tut-step-title {
+      color: #a0d8ef;
+      font-weight: bold;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+    }
+
+    .tut-param {
+      background: rgba(77,208,225,0.06);
+      border-left: 3px solid #4dd0e1;
+      padding: 8px 12px;
+      margin: 6px 0;
+      border-radius: 0 6px 6px 0;
+    }
+
+    .tut-param b { color: #4dd0e1; }
+    .tut-warn { color: #ff9800; }
+    .tut-good { color: #27ae60; }
+    .tut-bad  { color: #e74c3c; }
+
+    .tut-close {
+      position: absolute;
+      top: 12px; right: 16px;
+      background: none;
+      border: 1px solid #e74c3c;
+      color: #e74c3c;
+      border-radius: 4px;
+      padding: 2px 10px;
+      cursor: pointer;
+      font-family: 'Courier New', monospace;
+      font-size: 0.7rem;
+    }
+    .tut-close:hover { background: rgba(231,76,60,0.2); }
+
+    .tut-example {
+      background: rgba(39,174,96,0.08);
+      border: 1px solid #27ae60;
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-top: 10px;
+    }
+    .tut-example b { color: #2ecc71; }
   </style>
 </head>
 <body>
@@ -257,8 +367,76 @@
   <span style="font-size:1.3rem">🚀</span>
   <h1>БАЛІСТИЧНИЙ СИМУЛЯТОР</h1>
   <span id="modeDisplay" class="badge badge-mode">ВИБЕРИ ТОЧКУ ЗАПУСКУ</span>
+  <span class="badge tut-btn" onclick="showTutorial()">? ТУТОРІАЛ</span>
   <span class="badge badge-reset" onclick="resetAll()">✕ СКИНУТИ</span>
 </header>
+
+<!-- ТУТОРІАЛ -->
+<div class="tut-overlay" id="tutOverlay" onclick="hideTutorial(event)">
+  <div class="tut-modal">
+    <button class="tut-close" onclick="hideTutorial()">✕ ЗАКРИТИ</button>
+    <h2>🚀 ЯК КОРИСТУВАТИСЬ СИМУЛЯТОРОМ</h2>
+
+    <!-- Кроки -->
+    <div class="tut-step">
+      <div class="tut-step-title"><span class="tut-step-num">1</span> Обери ракету</div>
+      Кожна ракета має свою максимальну дальність. Якщо ціль далеко — бери більшу ракету.<br>
+      <span class="tut-warn">⚠️ Град — лише 20 км. Іскандер — 500 км. Кинджал — 2000 км.</span>
+    </div>
+
+    <div class="tut-step">
+      <div class="tut-step-title"><span class="tut-step-num">2</span> Постав точку запуску 🔴</div>
+      Клікни будь-де на карті — це буде місце старту.
+    </div>
+
+    <div class="tut-step">
+      <div class="tut-step-title"><span class="tut-step-num">3</span> Постав ціль 🎯</div>
+      Клікни ще раз — це ціль. Відстань рахується автоматично.<br>
+      <span class="tut-warn">⚠️ Якщо пише "за межами дальності" — ціль занадто далеко для обраної ракети!</span>
+    </div>
+
+    <div class="tut-step">
+      <div class="tut-step-title"><span class="tut-step-num">4</span> Натисни 🚀 ПУСК</div>
+      Симулятор розрахує кут, траєкторію і запустить анімацію.
+    </div>
+
+    <!-- Параметри -->
+    <div class="tut-step">
+      <div class="tut-step-title">⚙️ Що роблять слайдери</div>
+
+      <div class="tut-param">
+        <b>Гравітація (м/с²)</b> — стандарт Землі: 9.81<br>
+        <span class="tut-good">↓ менше</span> — ракета летить далі і вище (як на Місяці 1.6)<br>
+        <span class="tut-bad">↑ більше</span> — ракета падає швидше, дальність зменшується
+      </div>
+
+      <div class="tut-param">
+        <b>Опір повітря (×)</b> — наскільки повітря гальмує ракету<br>
+        <span class="tut-good">0 = вакуум</span> — максимальна дальність, ракета не сповільнюється<br>
+        <span class="tut-bad">3× = густий туман</span> — ракета сильно гальмує, летить коротше
+      </div>
+
+      <div class="tut-param">
+        <b>Маса снаряду (×)</b> — множник маси від базової<br>
+        <span class="tut-good">0.1× = дуже легка</span> — легша ракета менше долає опір повітря<br>
+        <span class="tut-bad">5× = дуже важка</span> — важча ракета також менше гальмується повітрям<br>
+        <span class="tut-warn">⚠️ При мінімальній масі (0.1) легка ракета різко гальмується — дальність падає!</span>
+      </div>
+    </div>
+
+    <!-- Приклад -->
+    <div class="tut-example">
+      <b>✅ Готовий приклад для старту:</b><br><br>
+      1. Обери <b>БМ-21 Град 💥</b><br>
+      2. Постав точку запуску біля <b>Харкова</b><br>
+      3. Постав ціль за <b>10–15 км</b> від неї<br>
+      4. Параметри залиш стандартні: гравітація <b>9.81</b>, опір <b>1.0×</b>, маса <b>1.0×</b><br>
+      5. Натисни <b>🚀 ПУСК</b><br><br>
+      Спробуй потім змінити опір повітря на <b>0</b> — побачиш як ракета летить набагато далі!
+    </div>
+
+  </div>
+</div>
 
 <div class="main">
   <div class="panel">
@@ -923,9 +1101,23 @@ function doLaunch() {
 }
 
 // ============================================================
+// ТУТОРІАЛ
+// ============================================================
+function showTutorial() {
+  document.getElementById('tutOverlay').classList.add('show');
+}
+function hideTutorial(e) {
+  if (!e || e.target === document.getElementById('tutOverlay')) {
+    document.getElementById('tutOverlay').classList.remove('show');
+  }
+}
+
+// ============================================================
 // СТАРТ
 // ============================================================
 setMode('launch');
+// Показати туторіал при першому запуску
+setTimeout(showTutorial, 600);
 </script>
 </body>
 </html>
