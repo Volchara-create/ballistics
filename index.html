@@ -605,6 +605,71 @@
     .tut-example b { color: #2ecc71; }
 
     /* ============================================================
+       ППО АНАЛІЗ
+    ============================================================ */
+    .ppo-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.72); z-index: 9100;
+      align-items: center; justify-content: center;
+    }
+    .ppo-overlay.show { display: flex; }
+    .ppo-modal {
+      background: #0a1428; border: 1px solid #1565c0;
+      border-radius: 12px; width: 500px; max-width: 97vw;
+      max-height: 90vh; overflow-y: auto;
+      padding: 20px 22px; font-family: 'Courier New', monospace;
+      font-size: 0.76rem; color: #c8d8f0;
+    }
+    .ppo-modal h3 { color: #42a5f5; letter-spacing: 2px; font-size: 0.88rem; margin-bottom: 14px; text-align: center; }
+    .ppo-sys {
+      background: rgba(10,20,50,0.7); border: 1px solid #1a3060;
+      border-radius: 8px; padding: 10px 12px; margin-bottom: 8px;
+    }
+    .ppo-sys-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .ppo-sys-name { font-weight: bold; color: #e0f0ff; flex: 1; }
+    .ppo-sys-country { font-size: 0.62rem; color: #6080a0; }
+    .ppo-factors { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-bottom: 6px; }
+    .ppo-factor { font-size: 0.64rem; color: #708090; }
+    .ppo-factor b { color: #90b8d0; }
+    .ppo-result {
+      display: flex; gap: 8px; align-items: center; padding: 6px 8px;
+      border-radius: 5px; margin-top: 4px;
+    }
+    .ppo-result.high   { background: rgba(39,174,96,0.12);  border: 1px solid #27ae60; }
+    .ppo-result.medium { background: rgba(255,152,0,0.10);  border: 1px solid #ff9800; }
+    .ppo-result.low    { background: rgba(231,76,60,0.10);  border: 1px solid #c0392b; }
+    .ppo-result.none   { background: rgba(40,40,60,0.5);    border: 1px solid #2a3050; opacity: 0.5; }
+    .ppo-pkill { font-size: 1.1rem; font-weight: bold; min-width: 44px; text-align: center; }
+    .ppo-pkill.high   { color: #27ae60; }
+    .ppo-pkill.medium { color: #ff9800; }
+    .ppo-pkill.low    { color: #e74c3c; }
+    .ppo-pkill.none   { color: #445566; }
+    .ppo-detail { flex: 1; font-size: 0.64rem; line-height: 1.6; }
+    .ppo-intercept-info {
+      background: rgba(21,101,192,0.1); border: 1px solid #1565c0;
+      border-radius: 8px; padding: 10px 12px; margin-bottom: 12px;
+      font-size: 0.7rem; line-height: 1.7;
+    }
+    .ppo-intercept-info b { color: #42a5f5; }
+    .ppo-frag-box {
+      background: rgba(231,76,60,0.08); border: 1px solid #c0392b;
+      border-radius: 8px; padding: 10px 12px; margin-top: 10px;
+      font-size: 0.7rem; line-height: 1.7;
+    }
+    .ppo-frag-box b { color: #e74c3c; }
+    .ppo-close {
+      width: 100%; margin-top: 12px; padding: 9px;
+      background: rgba(10,16,32,0.8); border: 1px solid #1565c0;
+      border-radius: 8px; color: #42a5f5; cursor: pointer;
+      font-family: 'Courier New', monospace; font-size: 0.75rem; letter-spacing: 1px;
+    }
+    .ppo-close:hover { background: rgba(21,101,192,0.2); }
+    .ppo-section-title {
+      font-size: 0.58rem; text-transform: uppercase; letter-spacing: 2px;
+      color: #42a5f5; opacity: 0.7; margin: 10px 0 6px;
+    }
+
+    /* ============================================================
        МОБІЛЬНА АДАПТАЦІЯ
     ============================================================ */
     @media (max-width: 768px) {
@@ -681,6 +746,7 @@
   <h1>БАЛІСТИЧНИЙ СИМУЛЯТОР</h1>
   <span id="modeDisplay" class="badge badge-mode">ВИБЕРИ ТОЧКУ ЗАПУСКУ</span>
   <span class="badge tut-btn" onclick="showTutorial()">? ТУТОРІАЛ</span>
+  <span class="badge" id="ppoBadge" style="border-color:#1565c0;color:#42a5f5;background:rgba(21,101,192,0.08);cursor:pointer;display:none" onclick="openPPO()">🛡️ ППО</span>
   <span class="badge badge-reset" onclick="resetAll()">✕</span>
 </header>
 
@@ -791,6 +857,19 @@
           </div>
           <input type="range" id="massSlider" min="0.1" max="5" step="0.1" value="1">
         </div>
+
+        <div class="slider-row">
+          <div class="slider-label">
+            Вітер <span class="val" id="windSpeedVal">0</span> м/с
+          </div>
+          <input type="range" id="windSpeedSlider" min="0" max="40" step="1" value="0">
+        </div>
+        <div class="slider-row">
+          <div class="slider-label">
+            Напрямок вітру <span class="val" id="windDirVal">0</span>° (від Пн)
+          </div>
+          <input type="range" id="windDirSlider" min="0" max="359" step="5" value="0">
+        </div>
       </div>
 
       <!-- ПРОФІЛЬ ВИСОТИ -->
@@ -807,6 +886,8 @@
           <div class="stat"><div class="stat-val" id="sHeight">—</div><div class="stat-lbl">Макс. висота</div></div>
           <div class="stat"><div class="stat-val" id="sTime">—</div><div class="stat-lbl">Час польоту</div></div>
           <div class="stat"><div class="stat-val" id="sAngle">—</div><div class="stat-lbl">Кут пуску</div></div>
+          <div class="stat"><div class="stat-val" id="sMach">—</div><div class="stat-lbl">Макс. Мах</div></div>
+          <div class="stat"><div class="stat-val" id="sCoriolis">—</div><div class="stat-lbl">Дрейф Коріоліс</div></div>
         </div>
       </div>
 
@@ -825,6 +906,10 @@
     </div><!-- /panel-scroll -->
 
     <div class="launch-wrap">
+      <div style="display:flex;gap:6px;margin-bottom:8px">
+        <button id="toggleSitesBtn" onclick="toggleDefenseSites()" style="flex:1;padding:6px 4px;background:rgba(10,16,32,0.6);border:1px solid #1565c0;border-radius:6px;color:#42a5f5;font-size:0.6rem;font-family:'Courier New',monospace;cursor:pointer;letter-spacing:1px">🛡️ ПОКАЗАТИ ППО</button>
+        <button id="toggleRangesBtn" onclick="toggleDefenseRanges()" style="flex:1;padding:6px 4px;background:rgba(10,16,32,0.6);border:1px solid #1a3050;border-radius:6px;color:#6080a0;font-size:0.6rem;font-family:'Courier New',monospace;cursor:pointer;letter-spacing:1px" disabled>🔵 ЗОНИ</button>
+      </div>
       <button id="launchBtn" disabled>🚀 ПУСК</button>
       <div class="repoint-row">
         <button class="repoint-btn" id="repointLaunch" disabled onclick="repointLaunch()">🔴 Змінити старт</button>
@@ -857,6 +942,15 @@
   </div>
 </div>
 
+<!-- ППО АНАЛІЗ -->
+<div class="ppo-overlay" id="ppoOverlay">
+  <div class="ppo-modal">
+    <h3>🛡️ АНАЛІЗ СИСТЕМ ППО</h3>
+    <div id="ppoContent"></div>
+    <button class="ppo-close" onclick="document.getElementById('ppoOverlay').classList.remove('show')">✕ ЗАКРИТИ</button>
+  </div>
+</div>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 // ============================================================
@@ -867,127 +961,532 @@ const ROCKETS = [
     id: 'grad',
     name: 'БМ-21 Град',
     nameEn: 'BM-21 Grad (МЛРС)',
-    mass: 66, diameter: 0.122, v0: 690, Cd: 0.35,
+    // Загальна маса при старті (включаючи паливо)
+    mass: 66,   dryMass: 47,    // кг: після вигорання залишається 47 кг
+    thrust: 52000,              // Н: тяга двигуна (розігнати 66 кг до ~690 м/с за ~0.8 с)
+    burnTime: 0.8,              // с: короткий імпульс твердого палива
+    diameter: 0.122, Cd: 0.35,
     maxRangeKm: 20, color: '#ff9800', icon: '💥',
-    desc: 'Радянська реактивна система залпового вогню. Калібр 122 мм. Дальність 20 км. Перша серійна у 1963 р.'
+    desc: 'Радянська РСЗВ. Калібр 122 мм. Паливо: твердотільний ракетний двигун, горить 0.8 с. Після вигорання — чистий балістичний політ.'
   },
   {
     id: 'himars',
     name: 'HIMARS GMLRS',
     nameEn: 'M31 GMLRS (США)',
-    mass: 91, diameter: 0.227, v0: 1050, Cd: 0.22,
+    mass: 91,   dryMass: 58,
+    thrust: 160000,
+    burnTime: 1.5,
+    diameter: 0.227, Cd: 0.22,
     maxRangeKm: 85, color: '#4fc3f7', icon: '🎯',
-    desc: 'Американська керована ракета для HIMARS. Точність 5 м. Дальність 85 км. GPS+INS наведення.'
+    desc: 'Американська керована ракета. Тверде паливо, горить 1.5 с → 1050 м/с. Потім балістика + GPS корекція. Точність 5 м.'
   },
   {
     id: 'scud',
     name: 'Р-17 Скад-Б',
     nameEn: 'R-17 Scud-B (СРСР)',
-    mass: 985, diameter: 0.88, v0: 1500, Cd: 0.2,
+    // Скад має ТРИВАЛИЙ двигун: 65 секунд! Маса різко змінюється в польоті.
+    mass: 5860,  dryMass: 1980,  // стартова 5860 кг, після вигорання 1980 кг
+    thrust: 132000,              // Н: задокументована тяга РД-214
+    burnTime: 65,                // с: 65 секунд горіння! Помітно на траєкторії
+    diameter: 0.88, Cd: 0.20,
     maxRangeKm: 300, color: '#ffeb3b', icon: '☣️',
-    desc: 'Оперативно-тактична балістична ракета СРСР 1961 р. Маса БЧ 985 кг. Дальність 300 км. КВО ~450 м.'
+    desc: 'СРСР 1961 р. Рідкопаливний двигун РД-214, горить 65 с. Маса падає з 5860 до 1980 кг — прискорення зростає! КВО ~450 м.'
   },
   {
     id: 'iskander',
     name: 'Іскандер-М',
     nameEn: '9M723 Iskander-M (РФ)',
-    mass: 4615, diameter: 0.92, v0: 2100, Cd: 0.15,
+    mass: 4615,  dryMass: 2000,
+    thrust: 280000,
+    burnTime: 18,
+    diameter: 0.92, Cd: 0.15,
     maxRangeKm: 500, color: '#ef5350', icon: '⚠️',
-    desc: 'Оперативно-тактичний ракетний комплекс РФ. Маса 4615 кг. Дальність 500 км. Маневрує при заході.'
+    desc: 'РФ, тверде паливо, горить 18 с. Маса: 4615→2000 кг. Маневрує на фінальній ділянці. Дальність 500 км.'
   },
   {
     id: 'kinzhal',
     name: 'Х-47М2 Кинджал',
     nameEn: 'Kh-47M2 Kinzhal (РФ)',
-    mass: 2000, diameter: 0.5, v0: 3300, Cd: 0.1,
+    // Скидається з МіГ-31К на швидкості ~Mach 2, власний двигун дає ще ~Mach 8
+    mass: 2000,  dryMass: 820,
+    thrust: 550000,
+    burnTime: 12,
+    diameter: 0.5, Cd: 0.10,
     maxRangeKm: 2000, color: '#ab47bc', icon: '💀',
-    desc: 'Гіперзвукова аеробалістична ракета. Швидкість Mach 10. Дальність 2000 км. Носій МіГ-31К або Ту-22М3.'
+    desc: 'Гіперзвукова, скидається з МіГ-31К. Двигун горить 12 с → Mach 10+. Досягає висоти ~50 км. Дальність 2000 км.'
   },
   {
     id: 'tomahawk',
     name: 'BGM-109 Томагавк',
     nameEn: 'BGM-109 Tomahawk (США)',
-    mass: 1315, diameter: 0.527, v0: 247, Cd: 0.06,
+    // Крилата ракета з турбовентиляторним двигуном — тяга мала але постійна
+    mass: 1315,  dryMass: 450,
+    thrust: 3100,    // Н: Williams F107 турбовентилятор — тяга як у малого авто
+    burnTime: 9000,  // с: паливо на ~2.5 години польоту (дозвукова крилата)
+    diameter: 0.527, Cd: 0.06,
     maxRangeKm: 2500, color: '#26a69a', icon: '🦅',
-    desc: 'Американська дозвукова крилата ракета. Маса 1315 кг. Дальність 2500 км. Летить на низькій висоті (50–100 м).'
+    desc: 'Дозвукова крилата ракета. Турбовентилятор 3100 Н (як малий авто) — тяга мала, але постійна. Летить на 50–100 м висоти.'
   }
 ];
 
 // ============================================================
-// ФІЗИКА
+// СИСТЕМИ ППО
 // ============================================================
-function airDensity(h) {
-  if (h < 0) h = 0;
-  if (h < 11000) {
-    const T = 288.15 - 0.0065 * h;
-    const P = 101325 * Math.pow(T / 288.15, 5.2561);
-    return P / (287.05 * T);
+const AIR_DEFENSE = [
+  {
+    id: 'patriot',
+    name: 'Patriot PAC-3',
+    country: '🇺🇸 США/НАТО',
+    maxRangeKm: 40,   // км: радіус дії перехоплювача
+    maxAltKm: 24,     // км: макс. висота ураження
+    minAltKm: 0.06,   // км: мін. висота (менше — не дістане)
+    basePkill: 0.85,  // базова Pзнищення (проти типового балістичного снаряду)
+    maxEffMach: 5,    // ефективний до цього числа Маха
+    color: '#4fc3f7',
+    desc: 'Кращий захист від балістики до Mach 5. 1 батарея = ~6 пускових.'
+  },
+  {
+    id: 's300',
+    name: 'С-300ПМ',
+    country: '🇺🇦 Україна/РФ',
+    maxRangeKm: 150,
+    maxAltKm: 27,
+    minAltKm: 0.3,
+    basePkill: 0.72,
+    maxEffMach: 4,
+    color: '#ffeb3b',
+    desc: 'Великий радіус, але застарілий проти Mach 5+. Основа ППО України.'
+  },
+  {
+    id: 'nasams',
+    name: 'NASAMS',
+    country: '🇺🇸🇳🇴 США/Норвегія',
+    maxRangeKm: 25,
+    maxAltKm: 15,
+    minAltKm: 0.03,
+    basePkill: 0.90,
+    maxEffMach: 3,
+    color: '#66bb6a',
+    desc: 'Висока точність проти крилатих ракет. Менший радіус але висока надійність.'
+  },
+  {
+    id: 'ironDome',
+    name: 'Iron Dome',
+    country: '🇮🇱 Ізраїль',
+    maxRangeKm: 70,
+    maxAltKm: 10,
+    minAltKm: 0.05,
+    basePkill: 0.90,
+    maxEffMach: 2.5,
+    color: '#ab47bc',
+    desc: 'Проти РСЗВ та крилатих. Неефективний проти балістики вище 10 км.'
+  },
+  {
+    id: 's400',
+    name: 'С-400 Тріумф',
+    country: '🇷🇺 Росія',
+    maxRangeKm: 400,
+    maxAltKm: 30,
+    minAltKm: 0.01,
+    basePkill: 0.88,
+    maxEffMach: 14,
+    color: '#ef5350',
+    desc: 'Найдальший радіус. Заявлено ефективність навіть проти гіперзвуку (40% на Mach 10+).'
+  },
+  {
+    id: 'arrow3',
+    name: 'Arrow-3',
+    country: '🇮🇱 Ізраїль',
+    maxRangeKm: 2400,
+    maxAltKm: 150,  // б\'є в космосі!
+    minAltKm: 50,
+    basePkill: 0.80,
+    maxEffMach: 15,
+    color: '#26a69a',
+    desc: 'Екзоатмосферний: перехоплює балістику у космосі (50–150 км). Єдина система проти Кинджала.'
+  },
+];
+
+// Розраховує ймовірність знищення + аналіз перехоплення
+function calcInterception(defense, traj, rocket) {
+  const maxH_km   = Math.max(...traj.map(p => p.y)) / 1000;
+  const totalKm   = traj[traj.length - 1].x / 1000;
+  const mach      = traj.maxMach;
+
+  // Чи проходить траєкторія через зону ураження системи?
+  const inAlt     = maxH_km >= defense.minAltKm && maxH_km <= defense.maxAltKm * 1.5;
+  const inRange   = totalKm <= defense.maxRangeKm * 3; // ціль в зоні досяжності
+  if (!inAlt || !inRange) return { pkill: 0, canEngage: false };
+
+  // 1. Швидкість: вище maxEffMach — різко падає ефективність
+  let speedF = 1.0;
+  if (mach > defense.maxEffMach) {
+    speedF = Math.max(0.05, 1 - 0.18 * (mach - defense.maxEffMach));
   }
-  return 0.3639 * Math.exp(-0.0001577 * (h - 11000));
+
+  // 2. Висота: оптимум — в середині зони; занадто низька або висока — гірше
+  let altF = 1.0;
+  if (maxH_km < defense.minAltKm * 3) altF = 0.4; // летить дуже низько
+  if (maxH_km > defense.maxAltKm)     altF = Math.max(0.15, 1 - 0.05 * (maxH_km - defense.maxAltKm));
+
+  // 3. Маневрування ракети (термінальна фаза)
+  const manF = { iskander: 0.60, kinzhal: 0.50, tomahawk: 0.70 }[rocket.id] ?? 1.0;
+
+  // 4. Розміри цілі: менша ракета = менша ЕПР = важче навести
+  const rcs   = Math.PI * (rocket.diameter / 2) ** 2; // м²
+  const sizeF = Math.min(1.0, 0.4 + rcs / 0.8);
+
+  const p1 = Math.min(0.97, Math.max(0.02,
+    defense.basePkill * speedF * altF * manF * sizeF
+  ));
+  const p2 = 1 - (1 - p1) ** 2;  // два перехоплювачі
+
+  // Де на траєкторії найімовірніше збиття (точка входу в зону дії + descending)
+  let interceptPt = null;
+  for (let i = Math.floor(traj.length * 0.5); i < traj.length; i++) {
+    const h = traj[i].y / 1000;
+    if (h >= defense.minAltKm && h <= defense.maxAltKm) {
+      interceptPt = traj[i];
+      break;
+    }
+  }
+
+  return { pkill: p1, pkill2: p2, canEngage: true,
+           speedF, altF, manF, sizeF, interceptPt, mach };
 }
 
-function simulate(v0, angleDeg, mass, Cd, diameter, gravity) {
+// Показує модальне вікно аналізу ППО
+function showPPOAnalysis(traj, rocket, launchPt, bear, isShortFall) {
+  const totalKm = (traj[traj.length-1].x / 1000).toFixed(0);
+  const maxH_km = (Math.max(...traj.map(p=>p.y)) / 1000).toFixed(0);
+  const mach    = traj.maxMach.toFixed(1);
+
+  let html = `
+    <div class="ppo-intercept-info">
+      🚀 <b>${rocket.name}</b> &nbsp;|&nbsp;
+      Дальність: <b>${totalKm} км</b> &nbsp;|&nbsp;
+      Макс. висота: <b>${maxH_km} км</b> &nbsp;|&nbsp;
+      Мах: <b>${mach}</b><br>
+      ${isShortFall ? '<span style="color:#ff9800">⚠️ Ракета не долетіла до цілі</span><br>' : ''}
+      <small style="color:#6080a0">
+        💡 Ймовірність розрахована з урахуванням: швидкості, висоти, маневрування та ЕПР
+      </small>
+    </div>
+    <div class="ppo-section-title">Системи ППО — ймовірність знищення</div>
+  `;
+
+  for (const def of AIR_DEFENSE) {
+    const r = calcInterception(def, traj, rocket);
+
+    let lvl = 'none', pTxt = 'н/д';
+    if (r.canEngage) {
+      const pct = Math.round(r.pkill * 100);
+      pTxt = pct + '%';
+      lvl = pct >= 65 ? 'high' : pct >= 35 ? 'medium' : 'low';
+    }
+
+    const pct2 = r.canEngage ? Math.round(r.pkill2 * 100) : '—';
+
+    html += `
+      <div class="ppo-sys">
+        <div class="ppo-sys-head">
+          <div style="width:8px;height:8px;border-radius:50%;background:${def.color};flex-shrink:0"></div>
+          <span class="ppo-sys-name">${def.name}</span>
+          <span class="ppo-sys-country">${def.country}</span>
+        </div>
+        ${r.canEngage ? `
+        <div class="ppo-factors">
+          <div class="ppo-factor">📡 Радіус: <b>${def.maxRangeKm} км</b></div>
+          <div class="ppo-factor">↕️ Висота: <b>${def.minAltKm}–${def.maxAltKm} км</b></div>
+          <div class="ppo-factor">⚡ Швидкість: <b>×${r.speedF.toFixed(2)}</b></div>
+          <div class="ppo-factor">↑ Висота: <b>×${r.altF.toFixed(2)}</b></div>
+          <div class="ppo-factor">🎯 Маневр: <b>×${r.manF.toFixed(2)}</b></div>
+          <div class="ppo-factor">📐 ЕПР: <b>×${r.sizeF.toFixed(2)}</b></div>
+        </div>
+        ` : `<div style="font-size:0.65rem;color:#445566;padding:4px 0">❌ Поза зоною ураження (висота/дальність)</div>`}
+        <div class="ppo-result ${lvl}">
+          <div class="ppo-pkill ${lvl}">${pTxt}</div>
+          <div class="ppo-detail">
+            ${r.canEngage
+              ? `<b>1 ракета-перехоплювач:</b> ${pTxt}<br>
+                 <b>2 ракети-перехоплювача:</b> ${pct2}%<br>
+                 <span style="color:#6080a0;font-size:0.6rem">${def.desc}</span>`
+              : `<span style="color:#445566">${def.desc}</span>`
+            }
+          </div>
+        </div>
+      </div>`;
+  }
+
+  // Якщо збили — ураження від осколків
+  html += `
+    <div class="ppo-section-title" style="margin-top:12px">Ураження при перехопленні в повітрі</div>
+    <div class="ppo-frag-box">
+      ${calcFragDamage(rocket, traj)}
+    </div>
+  `;
+
+  document.getElementById('ppoContent').innerHTML = html;
+  document.getElementById('ppoOverlay').classList.add('show');
+}
+
+// Розраховує ураження від осколків при збитті в повітрі
+function calcFragDamage(rocket, traj) {
+  // Типова висота перехоплення — середина балістичної дуги
+  const midIdx = Math.floor(traj.length * 0.6);
+  const interceptH_km = (traj[midIdx]?.y ?? traj[traj.length-1].y) / 1000;
+
+  // Радіус розльоту осколків залежить від висоти і маси
+  // r_frag = sqrt(2 * h * fragV²/g) — спрощена балістика осколків
+  // fragV ≈ 800–2000 м/с для бойових частин
+  const fragV = 1200; // м/с початкова швидкість осколків
+  const h_m   = interceptH_km * 1000;
+  const fragRadius_km = Math.min(15, (fragV * Math.sqrt(2 * h_m / 9.81)) / 1000);
+
+  // Площа розсіювання (еліпс: вітер тягне вперед)
+  const fragArea = Math.round(Math.PI * fragRadius_km * (fragRadius_km * 0.6) * 10) / 10;
+
+  // Кількість осколків залежить від БЧ
+  const warheadMass = rocket.mass - rocket.dryMass; // маса палива ≈ маса заряду
+  const fragCount = Math.round(warheadMass * 15); // ~15 фрагментів/кг
+
+  // Щільність осколків на км²
+  const fragDensity = Math.round(fragCount / Math.max(fragArea, 0.1));
+
+  const dangerLevel = fragDensity > 500 ? '🔴 КРИТИЧНА' : fragDensity > 100 ? '🟠 ВИСОКА' : '🟡 ПОМІРНА';
+
+  return `
+    <b>Перехоплення на ~${interceptH_km.toFixed(0)} км висоти</b><br>
+    Радіус розсіювання осколків: <b>${fragRadius_km.toFixed(1)} км</b><br>
+    Площа небезпечної зони: <b>${fragArea} км²</b> (еліпс)<br>
+    Кількість осколків БЧ: <b>~${fragCount.toLocaleString()} шт</b><br>
+    Щільність осколків: <b>${fragDensity} шт/км²</b><br>
+    Рівень небезпеки: ${dangerLevel}<br>
+    <br>
+    <span style="color:#c0a0a0;font-size:0.65rem">
+      ⚠️ При перехопленні в повітрі небезпечна зона <b>БІЛЬША</b> ніж при влученні у ціль,
+      але потужність удару <b>значно менша</b> — осколки замість цілісної БЧ.
+      Збиття над житловими кварталами може призвести до жертв.
+    </span>
+  `;
+}
+
+const DEFENSE_SITES = [
+  // Україна
+  { id:'ua_kyiv_p1',    systemId:'patriot', name:'Patriot (Київ-1)',     lat:50.50, lng:30.40, flag:'🇺🇦', active:true },
+  { id:'ua_kyiv_p2',    systemId:'patriot', name:'Patriot (Київ-2)',     lat:50.38, lng:30.68, flag:'🇺🇦', active:true },
+  { id:'ua_lviv_p',     systemId:'patriot', name:'Patriot (Львів)',      lat:49.84, lng:24.02, flag:'🇺🇦', active:true },
+  { id:'ua_kyiv_s300',  systemId:'s300',    name:'С-300 (Київ обл.)',    lat:50.20, lng:30.85, flag:'🇺🇦', active:true },
+  { id:'ua_dnipro_s',   systemId:'s300',    name:'С-300 (Дніпро)',       lat:48.46, lng:35.04, flag:'🇺🇦', active:true },
+  { id:'ua_odesa_s',    systemId:'s300',    name:'С-300 (Одеса)',        lat:46.55, lng:30.80, flag:'🇺🇦', active:true },
+  { id:'ua_khark_s',    systemId:'nasams',  name:'NASAMS (Харків)',      lat:50.05, lng:36.30, flag:'🇺🇦', active:true },
+  { id:'ua_zap_s',      systemId:'s300',    name:'С-300 (Запоріжжя)',   lat:47.83, lng:35.14, flag:'🇺🇦', active:true },
+  // Росія
+  { id:'ru_moscow_s4',  systemId:'s400',    name:'С-400 (Москва)',       lat:55.75, lng:37.62, flag:'🇷🇺', active:true },
+  { id:'ru_bel_s4',     systemId:'s400',    name:'С-400 (Бєлгород)',     lat:50.62, lng:36.58, flag:'🇷🇺', active:true },
+  { id:'ru_krs_s4',     systemId:'s400',    name:'С-400 (Курськ)',       lat:51.73, lng:36.19, flag:'🇷🇺', active:true },
+  { id:'ru_spb_s4',     systemId:'s400',    name:'С-400 (Санкт-Петербург)', lat:59.95, lng:30.32, flag:'🇷🇺', active:true },
+  // НАТО
+  { id:'pl_warsaw_p',   systemId:'patriot', name:'Patriot (Варшава)',    lat:52.23, lng:21.01, flag:'🇵🇱', active:true },
+  { id:'pl_rzeszow_p',  systemId:'patriot', name:'Patriot (Жешув)',      lat:50.04, lng:22.00, flag:'🇵🇱', active:true },
+  { id:'ro_buch_p',     systemId:'patriot', name:'Patriot (Бухарест)',   lat:44.43, lng:26.10, flag:'🇷🇴', active:true },
+  { id:'de_ramst_n',    systemId:'nasams',  name:'NASAMS (Рамштайн)',    lat:49.44, lng:7.60,  flag:'🇩🇪', active:true },
+  { id:'sk_slova_p',    systemId:'patriot', name:'Patriot (Словаччина)', lat:48.15, lng:17.11, flag:'🇸🇰', active:true },
+  // Ізраїль
+  { id:'il_tlv_iron',   systemId:'ironDome',name:'Iron Dome (Тель-Авів)',lat:32.08, lng:34.78, flag:'🇮🇱', active:true },
+  { id:'il_haifa_iron', systemId:'ironDome',name:'Iron Dome (Хайфа)',    lat:32.82, lng:34.99, flag:'🇮🇱', active:true },
+  { id:'il_arrow3',     systemId:'arrow3',  name:'Arrow-3 (Ізраїль)',    lat:31.80, lng:35.20, flag:'🇮🇱', active:true },
+  // Туреччина
+  { id:'tr_ank_p',      systemId:'patriot', name:'Patriot (Анкара)',     lat:39.93, lng:32.86, flag:'🇹🇷', active:true },
+];
+
+// ============================================================
+// ФІЗИКА v2 — 7-шарова атмосфера ISA, RK4, Коріоліс, Мах
+// ============================================================
+const EARTH_R = 6371000;
+const OMEGA   = 7.2921e-5;   // обертання Землі, рад/с
+const GAMMA   = 1.4;
+const R_AIR   = 287.05;
+
+// ISA стандартна атмосфера: 7 шарів
+function atmosphereISA(h) {
+  if (h < 0) h = 0;
+  // [hBase, Tbase K, L K/m, Pbase Pa]
+  const L = [
+    [0,     288.15, -0.0065, 101325.0],
+    [11000, 216.65,  0,       22632.1 ],
+    [20000, 216.65,  0.001,   5474.89 ],
+    [32000, 228.65,  0.0028,   868.019],
+    [47000, 270.65,  0,         110.906],
+    [51000, 270.65, -0.0028,    66.939],
+    [71000, 214.65, -0.002,      3.956],
+  ];
+  let [hB, TB, lapse, PB] = L[0];
+  for (let i = L.length - 1; i >= 0; i--) {
+    if (h >= L[i][0]) { [hB, TB, lapse, PB] = L[i]; break; }
+  }
+  const T = Math.max(TB + lapse * (h - hB), 1);
+  const P = Math.abs(lapse) < 1e-10
+    ? PB * Math.exp(-9.80665 * (h - hB) / (R_AIR * TB))
+    : PB * Math.pow(T / TB, -9.80665 / (lapse * R_AIR));
+  return { T, rho: Math.max(P, 0) / (R_AIR * T) };
+}
+
+// Швидкість звуку за температурою
+function speedOfSound(T) { return Math.sqrt(GAMMA * R_AIR * Math.max(T, 1)); }
+
+// Гравітація зменшується з висотою
+function gravityAtH(h, g0) { return g0 * Math.pow(EARTH_R / (EARTH_R + h), 2); }
+
+// Мах-залежний множник Cd (хвильовий опір)
+function machCdFactor(M) {
+  if (M < 0.8)  return 1.0;
+  if (M < 1.0)  return 1.0 + 2.5 * (M - 0.8);
+  if (M < 2.0)  return 1.5 - 0.25 * (M - 1.0);
+  if (M < 5.0)  return 1.25 - 0.05 * (M - 2.0);
+  return 0.9;
+}
+
+// simulate — стартує з v=0, моделює фазу тяги (burnTime), потім балістику
+// rocket: об'єкт з полями mass, dryMass, thrust, burnTime, Cd, diameter
+// angleDeg: кут пуску від горизонту (градуси)
+// gravity: g₀ на поверхні (м/с²)
+// dragMult, massMult: множники (зі слайдерів)
+// opts: { bearing, latitude, windSpeed, windDir }
+function simulate(rocket, angleDeg, gravity, dragMult, massMult, opts = {}) {
+  const { bearing = 0, latitude = 50, windSpeed = 0, windDir = 0 } = opts;
   const angle = angleDeg * Math.PI / 180;
-  const A = Math.PI * (diameter / 2) ** 2;
-  let x = 0, y = 0;
-  let vx = v0 * Math.cos(angle);
-  let vy = v0 * Math.sin(angle);
-  let t = 0;
-  const dt = Math.max(0.05, Math.min(2.0, 5000 / v0));
-  const points = [{ x, y, t }];
+  const A = Math.PI * (rocket.diameter / 2) ** 2;
+  const CdBase = rocket.Cd * Math.max(0.001, dragMult);
+  const mass0   = rocket.mass    * massMult;  // початкова маса з паливом
+  const massDry = rocket.dryMass * massMult;  // суха маса після вигорання
+  const thrust  = rocket.thrust;              // тяга не залежить від massMult
+  const burnTime = rocket.burnTime;
+  const phi = latitude * Math.PI / 180;
+  const sinPhi = Math.sin(phi), cosPhi = Math.cos(phi);
+  const sinB = Math.sin(bearing), cosB = Math.cos(bearing);
+  const windDirR = windDir * Math.PI / 180;
+  const W_x = windSpeed * Math.cos(windDirR - bearing);
+  const W_z = windSpeed * Math.sin(windDirR - bearing);
+
+  // Миттєва маса: лінійно падає від mass0 до massDry за burnTime секунд
+  function massAt(t) {
+    if (t >= burnTime) return massDry;
+    return mass0 - (mass0 - massDry) * (t / burnTime);
+  }
+
+  // Похідні стану [x, y, z, vx, vy, vz] у момент часу t
+  function f(s, t) {
+    const [, y,, vx, vy, vz] = s;
+    const h = Math.max(0, y);
+    const g = gravityAtH(h, gravity);
+    const m = massAt(t);
+
+    // Атмосфера: вище 100 км (лінія Кармана) — фактично вакуум
+    const { T, rho: rhoRaw } = atmosphereISA(h);
+    const rho = h < 100000 ? rhoRaw : rhoRaw * Math.exp(-(h - 100000) / 8000);
+
+    // Швидкість відносно повітря
+    const vxA = vx - W_x, vyA = vy, vzA = vz - W_z;
+    const vAir = Math.sqrt(vxA*vxA + vyA*vyA + vzA*vzA);
+    const Mach = vAir / speedOfSound(T);
+
+    // Аеродинамічний опір (Мах-залежний)
+    const CdEff = CdBase * machCdFactor(Mach);
+    const Fd = vAir < 0.001 ? 0 : 0.5 * rho * vAir * vAir * CdEff * A;
+
+    // Тяга діє вздовж вектора швидкості (або початкового кута якщо v=0)
+    let thrustAx = 0, thrustAy = 0;
+    if (t < burnTime && thrust > 0) {
+      const vTot = Math.sqrt(vx*vx + vy*vy);
+      if (vTot > 0.1) {
+        thrustAx = (thrust / m) * (vx / vTot);
+        thrustAy = (thrust / m) * (vy / vTot);
+      } else {
+        // на самому старті — тяга вздовж кута пуску
+        thrustAx = (thrust / m) * Math.cos(angle);
+        thrustAy = (thrust / m) * Math.sin(angle);
+      }
+    }
+
+    const Fm = Fd / m;
+    const dax = (vAir < 0.001 ? 0 : -Fm * (vxA / vAir)) + thrustAx;
+    const day = (vAir < 0.001 ? 0 : -Fm * (vyA / vAir)) + thrustAy;
+    const daz =  vAir < 0.001 ? 0 : -Fm * (vzA / vAir);
+
+    // Коріолісова сила (-2Ω × v)
+    const ax_c = -2*OMEGA*cosPhi*vy*sinB;
+    const ay_c =  2*OMEGA*cosPhi*vx*sinB;
+    const az_c =  2*OMEGA*(sinPhi*vx - cosPhi*vy*cosB);
+
+    return [vx, vy, vz, dax+ax_c, -g+day+ay_c, daz+az_c, Mach];
+  }
+
+  // RK4 крок (передаємо час для змінної маси)
+  function rk4(s, t) {
+    const k1 = f(s, t);
+    const k2 = f(s.map((v,i) => i<6 ? v+0.5*dt*k1[i] : v), t+0.5*dt);
+    const k3 = f(s.map((v,i) => i<6 ? v+0.5*dt*k2[i] : v), t+0.5*dt);
+    const k4 = f(s.map((v,i) => i<6 ? v+dt*k3[i] : v),     t+dt);
+    return s.map((v,i) => i<6 ? v+(dt/6)*(k1[i]+2*k2[i]+2*k3[i]+k4[i]) : v);
+  }
+
+  // dt: малий під час тяги (точність), 0.3с на балістиці (реалізм часу)
+  const dtBoost = burnTime > 0 ? Math.min(0.04, burnTime / 30) : 0.1;
+  const dtCoast = 0.3;
+  let dt = burnTime > 0 ? dtBoost : dtCoast;
+
+  // Стартуємо з нуля
+  let s = [0, 0, 0, 0, 0, 0];
+  let t = 0, maxMach = 0, maxH = 0, burnoutX = null, reachedSpace = false;
+  const pts = [{ x:0, y:0, z:0, t:0, thrust: true }];
   let iters = 0;
 
-  while (y >= -1 && iters < 400000) {
+  while (s[1] >= -1 && iters < 400000) {
     iters++;
-    const v = Math.sqrt(vx * vx + vy * vy);
-    if (v < 0.001) break;
 
-    const rho = airDensity(y);
-    const Fd = 0.5 * rho * v * v * Cd * A;
-    const ax = -(Fd / mass) * (vx / v);
-    const ay = -gravity - (Fd / mass) * (vy / v);
+    // Переключаємо крок після вигорання
+    if (t >= burnTime && dt === dtBoost) dt = dtCoast;
 
-    vx += ax * dt;
-    vy += ay * dt;
-    x += vx * dt;
-    y += vy * dt;
+    const d = f(s, t);
+    if (d[6] > maxMach) maxMach = d[6];
+    if (s[1] > maxH) maxH = s[1];
+    if (!reachedSpace && s[1] >= 100000) reachedSpace = true;
+    if (burnoutX === null && t >= burnTime) burnoutX = s[0];
+
+    s = rk4(s, t);
     t += dt;
+    if (s[1] < 0) break;
 
-    if (y < 0) break;
     const step = Math.max(1, Math.floor(iters / 1500));
-    if (iters % step === 0) points.push({ x, y, t });
+    if (iters % step === 0) pts.push({ x:s[0], y:s[1], z:s[2], t, thrust: t < burnTime });
   }
-
-  points.push({ x, y: 0, t });
-  return points;
+  pts.push({ x:s[0], y:0, z:s[2], t, thrust: false });
+  pts.maxMach = maxMach;
+  pts.lateralDrift = s[2];
+  pts.reachedSpace = reachedSpace;
+  pts.burnoutX = burnoutX;
+  return pts;
 }
 
-function findMaxRange(rocket, gravity, dragMult, massMult) {
-  const mass = rocket.mass * massMult;
-  const Cd = rocket.Cd * Math.max(0.001, dragMult);
+function findMaxRange(rocket, gravity, dragMult, massMult, opts = {}) {
   let maxRange = 0, optAngle = 40;
-
   for (let a = 5; a <= 85; a += 2) {
-    const t = simulate(rocket.v0, a, mass, Cd, rocket.diameter, gravity);
+    const t = simulate(rocket, a, gravity, dragMult, massMult, opts);
     const r = t[t.length - 1].x;
     if (r > maxRange) { maxRange = r; optAngle = a; }
   }
   return { maxRange, optAngle };
 }
 
-function findAngle(targetRange, rocket, gravity, dragMult, massMult) {
-  const mass = rocket.mass * massMult;
-  const Cd = rocket.Cd * Math.max(0.001, dragMult);
-  const { maxRange, optAngle } = findMaxRange(rocket, gravity, dragMult, massMult);
-
+function findAngle(targetRange, rocket, gravity, dragMult, massMult, opts = {}) {
+  const { maxRange, optAngle } = findMaxRange(rocket, gravity, dragMult, massMult, opts);
   if (targetRange > maxRange) return null;
-
   let lo = 2, hi = optAngle;
   for (let i = 0; i < 60; i++) {
     const mid = (lo + hi) / 2;
-    const r = simulate(rocket.v0, mid, mass, Cd, rocket.diameter, gravity);
-    if (r[r.length - 1].x < targetRange) lo = mid;
-    else hi = mid;
+    const t = simulate(rocket, mid, gravity, dragMult, massMult, opts);
+    if (t[t.length - 1].x < targetRange) lo = mid; else hi = mid;
   }
   return (lo + hi) / 2;
 }
@@ -1071,6 +1570,12 @@ let ST = {
   currentRocket: ROCKETS[0],
 };
 
+// Defense sites state
+let defenseSitesVisible = false;
+let defenseRangesVisible = false;
+let defenseMarkers = [];
+let defenseCircles = [];
+
 // ============================================================
 // ІКОНКИ
 // ============================================================
@@ -1109,10 +1614,13 @@ ROCKETS.forEach(r => {
 
 function updateSpecs() {
   const r = ST.currentRocket;
+  const fuelMass = r.mass - r.dryMass;
+  const fuelPct = Math.round(fuelMass / r.mass * 100);
   document.getElementById('specsBox').innerHTML = `
     <b>${r.nameEn}</b><br>
-    Маса: ${r.mass} кг &nbsp;|&nbsp; Діаметр: ${(r.diameter*100).toFixed(0)} см<br>
-    V₀: ${r.v0} м/с &nbsp;|&nbsp; Cd: ${r.Cd}<br>
+    Старт: <b>${r.mass} кг</b> → суха: <b>${r.dryMass} кг</b><br>
+    Паливо: <b>${fuelMass} кг (${fuelPct}%)</b> | Горить: <b>${r.burnTime} с</b><br>
+    Тяга: <b>${(r.thrust/1000).toFixed(0)} кН</b> | Cd: ${r.Cd} | ⌀${(r.diameter*100).toFixed(0)} см<br>
     ${r.desc}
   `;
 }
@@ -1137,12 +1645,22 @@ massSlider.oninput = () => {
   document.getElementById('massVal').textContent = parseFloat(massSlider.value).toFixed(1);
   if (ST.launchPt && ST.targetPt) updatePreview();
 };
+document.getElementById('windSpeedSlider').oninput = () => {
+  document.getElementById('windSpeedVal').textContent = document.getElementById('windSpeedSlider').value;
+  if (ST.launchPt && ST.targetPt) updatePreview();
+};
+document.getElementById('windDirSlider').oninput = () => {
+  document.getElementById('windDirVal').textContent = document.getElementById('windDirSlider').value;
+  if (ST.launchPt && ST.targetPt) updatePreview();
+};
 
 function getParams() {
   return {
     gravity: parseFloat(gravSlider.value),
     dragMult: parseFloat(dragSlider.value),
     massMult: parseFloat(massSlider.value),
+    windSpeed: parseFloat(document.getElementById('windSpeedSlider').value),
+    windDir: parseFloat(document.getElementById('windDirSlider').value),
   };
 }
 
@@ -1196,6 +1714,121 @@ function collapsePanel() {
 }
 
 // ============================================================
+// ППО — ПОЗИЦІЇ НА КАРТІ
+// ============================================================
+function getDefSys(systemId) {
+  return AIR_DEFENSE.find(d => d.id === systemId);
+}
+
+function renderDefenseSites() {
+  // Remove existing
+  defenseMarkers.forEach(m => m.remove());
+  defenseCircles.forEach(c => c.remove());
+  defenseMarkers = [];
+  defenseCircles = [];
+
+  if (!defenseSitesVisible) return;
+
+  DEFENSE_SITES.forEach(site => {
+    const sys = getDefSys(site.systemId);
+    if (!sys) return;
+
+    // Marker icon: flag + system name
+    const icon = L.divIcon({
+      html: `<div style="
+        background:rgba(8,13,26,0.92);
+        border:1.5px solid ${sys.color};
+        border-radius:6px;
+        padding:2px 5px;
+        font-size:0.55rem;
+        font-family:Courier New,monospace;
+        color:${sys.color};
+        white-space:nowrap;
+        cursor:pointer;
+        box-shadow:0 0 6px ${sys.color}44;
+        line-height:1.4;
+        text-align:center;
+      ">
+        <div style="font-size:0.9rem">${site.flag}</div>
+        <div>${sys.name.split(' ')[0]}</div>
+      </div>`,
+      className: '',
+      iconSize: [52, 36],
+      iconAnchor: [26, 18]
+    });
+
+    const marker = L.marker([site.lat, site.lng], { icon })
+      .addTo(map)
+      .bindTooltip(`${site.flag} ${site.name}<br>${sys.name} | Радіус ${sys.maxRangeKm} км`, {
+        className: 'city-tooltip'
+      });
+
+    // Click → set as target
+    marker.on('click', () => {
+      if (ST.mode === 'target' || (ST.launchPt && ST.mode === 'ready')) {
+        ST.targetPt = L.latLng(site.lat, site.lng);
+        if (ST.targetMarker) ST.targetMarker.remove();
+        ST.targetMarker = L.marker([site.lat, site.lng], {
+          icon: L.divIcon({
+            html: `<div style="font-size:28px;line-height:1;filter:drop-shadow(0 0 4px rgba(0,0,0,0.8))">🎯</div>`,
+            className: '', iconSize: [28,28], iconAnchor: [14,14]
+          })
+        }).addTo(map);
+        setMode('ready');
+        document.getElementById('launchBtn').disabled = false;
+        updateRepointBtns();
+        updatePreview();
+        document.getElementById('infoBox').innerHTML =
+          `Ціль: <b>${site.name}</b><br>Натисни <b>ПУСК 🚀</b>`;
+      }
+    });
+
+    defenseMarkers.push(marker);
+
+    // Range circle (if enabled)
+    if (defenseRangesVisible) {
+      const circle = L.circle([site.lat, site.lng], {
+        radius: sys.maxRangeKm * 1000,
+        color: sys.color,
+        fillColor: sys.color,
+        fillOpacity: 0.04,
+        weight: 1,
+        dashArray: '4,4',
+        opacity: 0.5
+      }).addTo(map);
+      defenseCircles.push(circle);
+    }
+  });
+}
+
+function toggleDefenseSites() {
+  defenseSitesVisible = !defenseSitesVisible;
+  const btn = document.getElementById('toggleSitesBtn');
+  const rangesBtn = document.getElementById('toggleRangesBtn');
+  btn.style.borderColor = defenseSitesVisible ? '#42a5f5' : '#1565c0';
+  btn.style.color = defenseSitesVisible ? '#e0f8ff' : '#42a5f5';
+  btn.textContent = defenseSitesVisible ? '🛡️ СХОВАТИ ППО' : '🛡️ ПОКАЗАТИ ППО';
+  btn.style.background = defenseSitesVisible ? 'rgba(21,101,192,0.2)' : 'rgba(10,16,32,0.6)';
+  rangesBtn.disabled = !defenseSitesVisible;
+  if (!defenseSitesVisible) {
+    defenseRangesVisible = false;
+    rangesBtn.style.color = '#6080a0';
+    rangesBtn.style.borderColor = '#1a3050';
+    rangesBtn.textContent = '🔵 ЗОНИ';
+  }
+  renderDefenseSites();
+}
+
+function toggleDefenseRanges() {
+  defenseRangesVisible = !defenseRangesVisible;
+  const btn = document.getElementById('toggleRangesBtn');
+  btn.style.color = defenseRangesVisible ? '#4dd0e1' : '#6080a0';
+  btn.style.borderColor = defenseRangesVisible ? '#4dd0e1' : '#1a3050';
+  btn.textContent = defenseRangesVisible ? '🔵 ЗОНИ ВКЛ' : '🔵 ЗОНИ';
+  renderDefenseSites();
+}
+
+// ============================================================
 // КЛІКИ НА КАРТУ
 // ============================================================
 map.on('click', e => {
@@ -1234,7 +1867,7 @@ function resetAll() {
   document.getElementById('launchBtn').disabled = true;
   setMode('launch');
   document.getElementById('infoBox').innerHTML = '1. Клікни на карту → <b>точка запуску 🔴</b><br>2. Клікни ще раз → <b>ціль 🎯</b><br>3. Натисни <b>ПУСК</b><br><br>Правий клік → скинути все';
-  ['sRange','sHeight','sTime','sAngle'].forEach(id => document.getElementById(id).textContent = '—');
+  ['sRange','sHeight','sTime','sAngle','sMach','sCoriolis'].forEach(id => document.getElementById(id).textContent = '—');
   drawProfile(null);
 }
 
@@ -1289,6 +1922,47 @@ function drawProfile(points) {
   ctx.stroke();
   ctx.setLineDash([]);
 
+  // Лінія Кармана — межа космосу 100 км
+  const KARMAN = 100000;
+  if (maxY > KARMAN * 0.8) {
+    const yK = py(KARMAN);
+    ctx.save();
+    ctx.setLineDash([3, 3]);
+    ctx.strokeStyle = '#00e5ff';
+    ctx.lineWidth = 1;
+    ctx.globalAlpha = 0.6;
+    ctx.beginPath();
+    ctx.moveTo(pad.l, yK);
+    ctx.lineTo(W - pad.r, yK);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#00e5ff';
+    ctx.font = '7px Courier New';
+    ctx.fillText('КОСМОС 100 km', pad.l + 2, yK - 2);
+    ctx.restore();
+  }
+
+  // Точка вигорання палива (burnoutX)
+  if (points.burnoutX && points.burnoutX > 0 && points.burnoutX < maxX) {
+    const xB = px(points.burnoutX);
+    ctx.save();
+    ctx.strokeStyle = '#ff9800';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([2, 2]);
+    ctx.globalAlpha = 0.7;
+    ctx.beginPath();
+    ctx.moveTo(xB, pad.t);
+    ctx.lineTo(xB, H - pad.b);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#ff9800';
+    ctx.font = '7px Courier New';
+    ctx.fillText('🔥', xB - 4, H - pad.b - 2);
+    ctx.restore();
+  }
+
   ctx.fillStyle = '#556677';
   ctx.font = '8px Courier New';
   ctx.fillText(`${(maxX/1000).toFixed(0)} км`, px(maxX) - 24, H - 2);
@@ -1308,25 +1982,40 @@ function drawProfile(points) {
 function updatePreview() {
   if (!ST.launchPt || !ST.targetPt) return;
 
-  const { gravity, dragMult, massMult } = getParams();
+  const { gravity, dragMult, massMult, windSpeed, windDir } = getParams();
   const r = ST.currentRocket;
   const dist = haversineDist(ST.launchPt.lat, ST.launchPt.lng, ST.targetPt.lat, ST.targetPt.lng);
-  const angle = findAngle(dist, r, gravity, dragMult, massMult);
+  const bear = calcBearing(ST.launchPt.lat, ST.launchPt.lng, ST.targetPt.lat, ST.targetPt.lng);
+  const opts = { bearing: bear, latitude: ST.launchPt.lat, windSpeed, windDir };
+  const angle = findAngle(dist, r, gravity, dragMult, massMult, opts);
 
+  // Якщо не долітає — показуємо траєкторію до точки падіння
   if (angle === null) {
+    const { maxRange, optAngle } = findMaxRange(r, gravity, dragMult, massMult, opts);
+    const trajShort = simulate(r, optAngle, gravity, dragMult, massMult, opts);
+    const shortDist = trajShort[trajShort.length - 1].x;
+    const maxH = Math.max(...trajShort.map(p => p.y));
+    document.getElementById('sRange').textContent = `${(dist/1000).toFixed(1)}км`;
+    document.getElementById('sHeight').textContent = `${(maxH/1000).toFixed(1)}км`;
+    document.getElementById('sTime').textContent = `${trajShort[trajShort.length-1].t.toFixed(0)}с`;
+    document.getElementById('sAngle').textContent = `${optAngle.toFixed(1)}°`;
+    document.getElementById('sMach').textContent = trajShort.maxMach.toFixed(2);
+    document.getElementById('sCoriolis').textContent = '—';
     document.getElementById('infoBox').innerHTML = `
-      <span class="info-warn">⚠️ Дистанція ${(dist/1000).toFixed(0)} км перевищує максимум ракети!</span><br>
-      Вибери іншу ракету або зміни точки.
+      <span class="info-warn">⚠️ Ціль за межами дальності!</span><br>
+      Ракета долетить лише <b>${(shortDist/1000).toFixed(0)} км</b> з <b>${(dist/1000).toFixed(0)} км</b><br>
+      <span style="color:#ff9800">⬆️ Кут макс. дальності: ${optAngle.toFixed(0)}°</span><br>
+      <br>Натисни <b>ПУСК</b> — ракета <b>впаде по дорозі</b> 💥
     `;
-    ['sRange','sHeight','sTime','sAngle'].forEach(id => document.getElementById(id).textContent = '!');
-    drawProfile(null);
-    if (ST.groundLine) { ST.groundLine.remove(); ST.groundLine = null; }
+    drawProfile(trajShort);
+    if (ST.groundLine) ST.groundLine.remove();
+    ST.groundLine = L.polyline([ST.launchPt, ST.targetPt], {
+      color: '#e74c3c', dashArray: '8,8', weight: 2, opacity: 0.3
+    }).addTo(map);
     return;
   }
 
-  const mass = r.mass * massMult;
-  const Cd = r.Cd * Math.max(0.001, dragMult);
-  const traj = simulate(r.v0, angle, mass, Cd, r.diameter, gravity);
+  const traj = simulate(r, angle, gravity, dragMult, massMult, opts);
   const maxH = Math.max(...traj.map(p => p.y));
   const tFlight = traj[traj.length - 1].t;
 
@@ -1334,13 +2023,16 @@ function updatePreview() {
   document.getElementById('sHeight').textContent = `${(maxH/1000).toFixed(1)}км`;
   document.getElementById('sTime').textContent = `${tFlight.toFixed(0)}с`;
   document.getElementById('sAngle').textContent = `${angle.toFixed(1)}°`;
+  document.getElementById('sMach').textContent = traj.maxMach.toFixed(2);
+  document.getElementById('sCoriolis').textContent = `${Math.abs(traj.lateralDrift).toFixed(0)}м`;
 
+  const spaceNote = traj.reachedSpace ? ' 🛸 <b>Вийшла в космос!</b><br>' : '';
   document.getElementById('infoBox').innerHTML = `
     Ракета: <b>${r.name}</b><br>
-    Кут пуску: <b>${angle.toFixed(1)}°</b><br>
-    Гравітація: <b>${gravity} м/с²</b><br>
-    <br>
-    Натисни <b>ПУСК 🚀</b>
+    Кут пуску: <b>${angle.toFixed(1)}°</b> | Мах: <b>${traj.maxMach.toFixed(1)}</b><br>
+    Паливо: <b>${r.mass - r.dryMass} кг</b>, горить <b>${r.burnTime} с</b><br>
+    ${spaceNote}Коріоліс: <b>${Math.abs(traj.lateralDrift).toFixed(0)} м</b> ${traj.lateralDrift > 0 ? '→' : '←'}<br>
+    <br>Натисни <b>ПУСК 🚀</b>
   `;
 
   drawProfile(traj);
@@ -1359,28 +2051,44 @@ document.getElementById('launchBtn').onclick = doLaunch;
 function doLaunch() {
   if (!ST.launchPt || !ST.targetPt) return;
 
-  const { gravity, dragMult, massMult } = getParams();
+  const bear = calcBearing(ST.launchPt.lat, ST.launchPt.lng, ST.targetPt.lat, ST.targetPt.lng);
+  const { gravity, dragMult, massMult, windSpeed, windDir } = getParams();
+  const opts = { bearing: bear, latitude: ST.launchPt.lat, windSpeed, windDir };
   const r = ST.currentRocket;
   const dist = haversineDist(ST.launchPt.lat, ST.launchPt.lng, ST.targetPt.lat, ST.targetPt.lng);
-  const angle = findAngle(dist, r, gravity, dragMult, massMult);
+  const angle = findAngle(dist, r, gravity, dragMult, massMult, opts);
 
-  if (angle === null) { alert('Ціль за межами дальності!'); return; }
+  // Якщо не долітає — летить на максимальний кут і падає по дорозі
+  let isShortFall = false;
+  let launchAngle = angle;
+  if (angle === null) {
+    isShortFall = true;
+    const { optAngle } = findMaxRange(r, gravity, dragMult, massMult, opts);
+    launchAngle = optAngle;
+  }
 
   // На мобільному — згорнути панель щоб бачити анімацію
   if (window.innerWidth <= 768) collapsePanel();
 
-  const mass = r.mass * massMult;
-  const Cd = r.Cd * Math.max(0.001, dragMult);
-  const traj = simulate(r.v0, angle, mass, Cd, r.diameter, gravity);
+  const traj = simulate(r, launchAngle, gravity, dragMult, massMult, opts);
+  const actualLandDist = traj[traj.length - 1].x;
 
   if (ST.trajLine) { ST.trajLine.remove(); ST.trajLine = null; }
   if (ST.groundLine) { ST.groundLine.remove(); ST.groundLine = null; }
 
-  const bear = calcBearing(ST.launchPt.lat, ST.launchPt.lng, ST.targetPt.lat, ST.targetPt.lng);
-  const latlngs = traj.map(p => destPoint(ST.launchPt.lat, ST.launchPt.lng, p.x, bear));
+  const latlngs = traj.map(p => {
+    const mainPt = destPoint(ST.launchPt.lat, ST.launchPt.lng, p.x, bear);
+    if (Math.abs(p.z || 0) < 1) return mainPt;
+    const perpBear = bear + (p.z >= 0 ? Math.PI/2 : -Math.PI/2);
+    return destPoint(mainPt[0], mainPt[1], Math.abs(p.z), perpBear);
+  });
+
+  // Реальна точка приземлення (може бути коротшою за ціль)
+  const actualLandPt = L.latLng(latlngs[latlngs.length - 1]);
 
   ST.trajLine = L.polyline([], {
-    color: r.color, weight: 2.5, dashArray: '7,5', opacity: 0.9
+    color: isShortFall ? '#e74c3c' : r.color,
+    weight: 2.5, dashArray: '7,5', opacity: 0.9
   }).addTo(map);
 
   let missileMarker = L.marker(ST.launchPt, { icon: mkIcon(r.icon, 20) }).addTo(map);
@@ -1391,35 +2099,144 @@ function doLaunch() {
   let i = 0;
   const chunkSize = Math.max(1, Math.floor(latlngs.length / 300));
 
+  const sitesTriggered = new Set(); // which sites have already attempted intercept
+  let intercepted = false;
+
   function step() {
     if (i < latlngs.length) {
       const pts = latlngs.slice(0, Math.min(i + chunkSize, latlngs.length));
       ST.trajLine.setLatLngs(pts);
       missileMarker.setLatLng(pts[pts.length - 1]);
       i += chunkSize;
+
+      // Check live interception by defense sites
+      if (!intercepted && defenseSitesVisible) {
+        const curLatLng = pts[pts.length - 1];
+        const trajIdx = Math.min(Math.floor(i), traj.length - 1);
+        const curPt = traj[trajIdx];
+        const curAlt_km = (curPt?.y ?? 0) / 1000;
+
+        for (const site of DEFENSE_SITES) {
+          if (sitesTriggered.has(site.id)) continue;
+          const sys = getDefSys(site.systemId);
+          if (!sys) continue;
+          const siteLat = L.latLng(site.lat, site.lng);
+          const distToMissile = siteLat.distanceTo(curLatLng) / 1000; // km
+          if (distToMissile > sys.maxRangeKm) continue;
+          if (curAlt_km < sys.minAltKm || curAlt_km > sys.maxAltKm * 1.3) continue;
+
+          sitesTriggered.add(site.id);
+
+          // Roll the dice
+          const interRes = calcInterception(sys, traj, r);
+          if (!interRes.canEngage) continue;
+          if (Math.random() > interRes.pkill) continue; // missed!
+
+          // INTERCEPTED!
+          intercepted = true;
+          cancelAnimationFrame(ST.animId);
+          missileMarker.remove();
+
+          // Animate interceptor from site to current missile position
+          const intMarker = L.marker([site.lat, site.lng], {
+            icon: L.divIcon({ html:'<div style="font-size:18px">🚀</div>', className:'', iconSize:[18,18], iconAnchor:[9,9] })
+          }).addTo(map);
+
+          const startSite = L.latLng(site.lat, site.lng);
+          const endPos = curLatLng;
+          let intStep = 0;
+          const intSteps = 30;
+
+          function animateInterceptor() {
+            intStep++;
+            const frac = intStep / intSteps;
+            const interpLat = startSite.lat + (endPos.lat - startSite.lat) * frac;
+            const interpLng = startSite.lng + (endPos.lng - startSite.lng) * frac;
+            intMarker.setLatLng([interpLat, interpLng]);
+
+            if (intStep < intSteps) {
+              requestAnimationFrame(animateInterceptor);
+            } else {
+              intMarker.remove();
+              // Explosion at intercept point
+              ST.trajLine.setLatLngs(latlngs.slice(0, i));
+              const boomPt = endPos;
+              const boom = L.marker(boomPt, { icon: L.divIcon({ html:'<div style="font-size:32px">💥</div>', className:'', iconSize:[32,32], iconAnchor:[16,16] }) }).addTo(map);
+              setTimeout(() => { boom.setIcon(L.divIcon({ html:'<div style="font-size:24px">💨</div>', className:'', iconSize:[24,24], iconAnchor:[12,12] })); }, 400);
+              setTimeout(() => boom.remove(), 2500);
+
+              setMode('ready');
+              document.getElementById('launchBtn').disabled = false;
+              updateRepointBtns();
+              savePPOData(traj, r, ST.launchPt, bear, false);
+
+              document.getElementById('infoBox').innerHTML = `
+                🛡️ <b>ПЕРЕХОПЛЕНО!</b><br>
+                Система: <b>${site.flag} ${site.name}</b><br>
+                ${sys.name} знищила ракету<br>
+                На відстані <b>${distToMissile.toFixed(0)} км</b> від позиції<br>
+                Висота перехоплення: <b>${curAlt_km.toFixed(0)} км</b><br>
+                <br><small style="color:#42a5f5;cursor:pointer" onclick="openPPO()">🛡️ Аналіз ППО →</small>
+              `;
+            }
+          }
+          requestAnimationFrame(animateInterceptor);
+          return; // Stop current step
+        }
+      }
+
       ST.animId = requestAnimationFrame(step);
     } else {
       ST.trajLine.setLatLngs(latlngs);
       missileMarker.remove();
 
-      const boom = L.marker(ST.targetPt, { icon: mkIcon('💥', 36) }).addTo(map);
-      setTimeout(() => {
-        boom.setIcon(mkIcon('🔥', 28));
-        setTimeout(() => boom.remove(), 3000);
-      }, 500);
+      if (isShortFall) {
+        // Вибух де впала, а не де ціль
+        const boom = L.marker(actualLandPt, { icon: mkIcon('💥', 36) }).addTo(map);
+        setTimeout(() => {
+          boom.setIcon(mkIcon('💨', 28));
+          setTimeout(() => boom.remove(), 3000);
+        }, 600);
 
-      setMode('ready');
-      document.getElementById('launchBtn').disabled = false;
-      updateRepointBtns();
-      showImpact(r, dist / 1000);
+        setMode('ready');
+        document.getElementById('launchBtn').disabled = false;
+        updateRepointBtns();
+        savePPOData(traj, r, ST.launchPt, bear, true);
 
-      document.getElementById('infoBox').innerHTML = `
-        💥 <b>Влучання!</b><br>
-        Дальність: <b>${(dist/1000).toFixed(1)} км</b><br>
-        Час польоту: <b>${traj[traj.length-1].t.toFixed(0)} с</b><br>
-        <br>
-        Клікни нову ціль або скинь (ПКМ)
-      `;
+        document.getElementById('infoBox').innerHTML = `
+          💥 <b>Не долетіла!</b><br>
+          Впала через <b>${(actualLandDist/1000).toFixed(1)} км</b><br>
+          Не вистачило <b>${((dist - actualLandDist)/1000).toFixed(1)} км</b><br>
+          Час польоту: <b>${traj[traj.length-1].t.toFixed(0)} с</b><br>
+          <br><span style="color:#ff9800">Обери іншу ракету або зміни ціль</span><br>
+          <small style="color:#42a5f5;cursor:pointer" onclick="openPPO()">🛡️ Аналіз ППО →</small>
+        `;
+      } else {
+        const boom = L.marker(ST.targetPt, { icon: mkIcon('💥', 36) }).addTo(map);
+        setTimeout(() => {
+          boom.setIcon(mkIcon('🔥', 28));
+          setTimeout(() => boom.remove(), 3000);
+        }, 500);
+
+        setMode('ready');
+        document.getElementById('launchBtn').disabled = false;
+        updateRepointBtns();
+        showImpact(r, dist / 1000);
+        savePPOData(traj, r, ST.launchPt, bear, false);
+
+        document.getElementById('sMach').textContent = traj.maxMach.toFixed(2);
+        document.getElementById('sCoriolis').textContent = `${Math.abs(traj.lateralDrift).toFixed(0)}м`;
+
+        const spaceNote = traj.reachedSpace ? '🛸 Вийшла в космос!<br>' : '';
+        document.getElementById('infoBox').innerHTML = `
+          💥 <b>Влучання!</b><br>
+          Дальність: <b>${(dist/1000).toFixed(1)} км</b><br>
+          Час польоту: <b>${traj[traj.length-1].t.toFixed(0)} с</b><br>
+          ${spaceNote}Мах: <b>${traj.maxMach.toFixed(1)}</b> | Коріоліс: <b>${Math.abs(traj.lateralDrift).toFixed(0)} м</b><br>
+          <br>Клікни нову ціль або скинь (ПКМ)<br>
+          <small style="color:#42a5f5;cursor:pointer" onclick="openPPO()">🛡️ Аналіз ППО →</small>
+        `;
+      }
     }
   }
 
@@ -1435,11 +2252,12 @@ let allSolutions = {};
 function checkStandard(rocket, dist) {
   const angle = findAngle(dist, rocket, 9.81, 1.0, 1.0);
   if (angle === null) return null;
-  const traj = simulate(rocket.v0, angle, rocket.mass, rocket.Cd, rocket.diameter, 9.81);
+  const traj = simulate(rocket, angle, 9.81, 1.0, 1.0);
   const maxH = Math.max(...traj.map(p => p.y));
   const tFlight = traj[traj.length - 1].t;
   return { angle, maxH, tFlight };
 }
+
 
 function showOptimalModal() {
   if (!ST.launchPt || !ST.targetPt) return;
@@ -1706,6 +2524,31 @@ function hideTutorial(e) {
     document.getElementById('tutOverlay').classList.remove('show');
   }
 }
+
+// ============================================================
+// ============================================================
+// ППО — збереження даних останнього польоту
+// ============================================================
+let _lastPPOData = null;
+
+function savePPOData(traj, rocket, launchPt, bear, isShortFall) {
+  _lastPPOData = { traj, rocket, launchPt, bear, isShortFall };
+  document.getElementById('ppoBadge').style.display = 'inline';
+}
+
+function openPPO() {
+  if (!_lastPPOData) return;
+  const { traj, rocket, launchPt, bear, isShortFall } = _lastPPOData;
+  showPPOAnalysis(traj, rocket, launchPt, bear, isShortFall);
+}
+
+// При скиданні — ховаємо кнопку ППО
+const _origResetAll = resetAll;
+// patch: resetAll вже визначена вище, просто ховаємо badge
+document.querySelector('[onclick="resetAll()"]').addEventListener('click', () => {
+  document.getElementById('ppoBadge').style.display = 'none';
+  _lastPPOData = null;
+});
 
 // ============================================================
 // СТАРТ
