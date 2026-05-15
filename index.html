@@ -1359,113 +1359,104 @@ function doLaunch() {
 // ============================================================
 // ВІКНО ОПТИМАЛЬНИХ ПАРАМЕТРІВ
 // ============================================================
-let optimalParams = null; // збережемо щоб застосувати
+// optimalSolution: { rocket, angle } або null якщо жодна не тягне
+let optimalSolution = null;
 
-function calcOptimalParams(dist, rocket) {
-  const gravity = 9.81;
-  const dragMult = 1.0;
-
-  // Спочатку пробуємо масу 1.0
-  let angle = findAngle(dist, rocket, gravity, dragMult, 1.0);
-  if (angle !== null) {
-    return { gravity, dragMult, massMult: 1.0, angle, possible: true };
-  }
-
-  // Збільшуємо масу (важча ракета менше гальмується повітрям → далі летить)
-  for (let m = 1.5; m <= 5.0; m += 0.5) {
-    angle = findAngle(dist, rocket, gravity, dragMult, m);
-    if (angle !== null) {
-      return { gravity, dragMult, massMult: m, angle, possible: true };
-    }
-  }
-
-  // Спробуємо зменшити опір повітря
-  for (let d = 0.7; d >= 0; d -= 0.1) {
-    angle = findAngle(dist, rocket, gravity, parseFloat(d.toFixed(1)), 1.0);
-    if (angle !== null) {
-      return { gravity, dragMult: parseFloat(d.toFixed(1)), massMult: 1.0, angle, possible: true };
-    }
-  }
-
-  return { possible: false };
+// Перевірка ракети при стандартних умовах (9.81 / 1.0 / 1.0)
+function checkStandard(rocket, dist) {
+  const angle = findAngle(dist, rocket, 9.81, 1.0, 1.0);
+  if (angle === null) return null;
+  const traj = simulate(rocket.v0, angle, rocket.mass, rocket.Cd, rocket.diameter, 9.81);
+  const maxH = Math.max(...traj.map(p => p.y));
+  const tFlight = traj[traj.length - 1].t;
+  return { angle, maxH, tFlight };
 }
 
 function showOptimalModal() {
   if (!ST.launchPt || !ST.targetPt) return;
 
-  const r = ST.currentRocket;
   const dist = haversineDist(ST.launchPt.lat, ST.launchPt.lng, ST.targetPt.lat, ST.targetPt.lng);
-  const opt = calcOptimalParams(dist, r);
-  optimalParams = opt;
+  const distKm = (dist / 1000).toFixed(1);
+  const current = ST.currentRocket;
 
-  // Список усіх ракет — які можуть долетіти, які ні
-  const rocketListHtml = ROCKETS.map(rk => {
-    const a = findAngle(dist, rk, 9.81, 1.0, 1.0);
-    const canReach = a !== null;
-    const isCurrent = rk.id === r.id;
+  // Перевіряємо всі ракети при стандартних умовах
+  const results = ROCKETS.map(rk => ({ rocket: rk, data: checkStandard(rk, dist) }));
+  const capable = results.filter(x => x.data !== null);
+  const currentOk = results.find(x => x.rocket.id === current.id)?.data || null;
+
+  // Знаходимо найкращу рекомендацію — ту що долітає з найменшою дальністю (найточніша)
+  const best = capable.length > 0
+    ? capable.reduce((a, b) => a.rocket.maxRangeKm < b.rocket.maxRangeKm ? a : b)
+    : null;
+
+  optimalSolution = best ? { rocket: best.rocket, ...best.data } : null;
+
+  // Рядки списку ракет
+  const rocketListHtml = results.map(({ rocket, data }) => {
+    const isCurrent = rocket.id === current.id;
+    const isBest = best && rocket.id === best.rocket.id && !currentOk;
+    const ok = data !== null;
     return `
-      <div class="opt-rocket-item ${canReach ? 'ok' : 'bad'}">
-        <span class="ri-icon">${rk.icon}</span>
-        <span class="ri-name">${rk.name}${isCurrent ? ' ◀' : ''}</span>
-        <span class="ri-status">${canReach ? '✅ долетить' : '❌ не рекомендовано'}</span>
+      <div class="opt-rocket-item ${ok ? 'ok' : 'bad'}">
+        <span class="ri-icon">${rocket.icon}</span>
+        <div style="flex:1">
+          <div class="ri-name">${rocket.name}${isCurrent ? ' <span style="color:#4dd0e1">◀ обрано</span>' : ''}${isBest ? ' <span style="color:#27ae60">★ рекомендовано</span>' : ''}</div>
+          <div style="font-size:0.6rem;color:#445566">до ${rocket.maxRangeKm} км</div>
+        </div>
+        <span class="ri-status">${ok ? `✅ ${data.angle.toFixed(0)}°` : '❌'}</span>
       </div>`;
   }).join('');
 
   let html = `
-    <div class="opt-info">
-      Відстань до цілі: <b>${(dist/1000).toFixed(1)} км</b>
-    </div>
+    <div class="opt-info">Відстань до цілі: <b>${distKm} км</b></div>
+    <div style="font-size:0.62rem;color:#4dd0e1;letter-spacing:1px;margin-bottom:6px;text-transform:uppercase">Ракети при стандартних умовах</div>
     <div class="opt-rocket-list">${rocketListHtml}</div>
   `;
 
-  if (!opt.possible) {
+  if (currentOk) {
+    // Поточна ракета підходить — показуємо її параметри
+    html += `
+      <div style="font-size:0.62rem;color:#4dd0e1;letter-spacing:1px;margin:10px 0 6px;text-transform:uppercase">Оптимальне рішення (стандартні умови)</div>
+      <div class="opt-row"><div class="opt-row-label">Гравітація</div><div class="opt-row-val">9.81 м/с²</div></div>
+      <div class="opt-row"><div class="opt-row-label">Опір повітря</div><div class="opt-row-val">1.0×</div></div>
+      <div class="opt-row"><div class="opt-row-label">Маса снаряду</div><div class="opt-row-val">1.0×</div></div>
+      <div class="opt-row"><div class="opt-row-label">Кут пуску</div><div class="opt-row-val">${currentOk.angle.toFixed(1)}°</div></div>
+      <div class="opt-row"><div class="opt-row-label">Макс. висота</div><div class="opt-row-val">${(currentOk.maxH/1000).toFixed(1)} км</div></div>
+      <div class="opt-row"><div class="opt-row-label">Час польоту</div><div class="opt-row-val">${currentOk.tFlight.toFixed(0)} с</div></div>
+    `;
+    optimalSolution = { rocket: current, ...currentOk };
+    document.getElementById('optConfirm').textContent = '✅ ПІДТВЕРДИТИ';
+    document.getElementById('optConfirm').disabled = false;
+
+  } else if (best) {
+    // Поточна не підходить, є рекомендована
     html += `
       <div class="opt-warn">
-        ❌ Ракета <b>${r.name}</b> не може досягти цілі навіть при максимальних налаштуваннях.<br>
-        Обери іншу ракету зі списку вище.
+        ⚠️ <b>${current.name}</b> не долетить до цілі при стандартних умовах.<br>
+        Рекомендується замінити на <b>${best.rocket.icon} ${best.rocket.name}</b>.
       </div>
+      <div style="font-size:0.62rem;color:#27ae60;letter-spacing:1px;margin:8px 0 6px;text-transform:uppercase">Рішення для ${best.rocket.name}</div>
+      <div class="opt-row"><div class="opt-row-label">Гравітація</div><div class="opt-row-val">9.81 м/с²</div></div>
+      <div class="opt-row"><div class="opt-row-label">Опір повітря</div><div class="opt-row-val">1.0×</div></div>
+      <div class="opt-row"><div class="opt-row-label">Маса снаряду</div><div class="opt-row-val">1.0×</div></div>
+      <div class="opt-row"><div class="opt-row-label">Кут пуску</div><div class="opt-row-val">${best.data.angle.toFixed(1)}°</div></div>
+      <div class="opt-row"><div class="opt-row-label">Макс. висота</div><div class="opt-row-val">${(best.data.maxH/1000).toFixed(1)} км</div></div>
+      <div class="opt-row"><div class="opt-row-label">Час польоту</div><div class="opt-row-val">${best.data.tFlight.toFixed(0)} с</div></div>
     `;
-    document.getElementById('optConfirm').disabled = true;
-  } else {
-    const traj = simulate(r.v0, opt.angle, r.mass * opt.massMult, r.Cd * Math.max(0.001, opt.dragMult), r.diameter, opt.gravity);
-    const maxH = Math.max(...traj.map(p => p.y));
-    const tFlight = traj[traj.length - 1].t;
-
-    const massNote = opt.massMult !== 1.0
-      ? `<div class="opt-row-note">збільшено щоб ракета долетіла</div>`
-      : `<div class="opt-row-note">стандартна бойова маса</div>`;
-
-    const dragNote = opt.dragMult < 1.0
-      ? `<div class="opt-row-note">зменшено щоб ракета долетіла</div>`
-      : `<div class="opt-row-note">стандартний опір Землі</div>`;
-
-    html += `
-      <div class="opt-row">
-        <div><div class="opt-row-label">Гравітація</div><div class="opt-row-note">стандарт Землі</div></div>
-        <div class="opt-row-val">9.81 м/с²</div>
-      </div>
-      <div class="opt-row">
-        <div><div class="opt-row-label">Опір повітря</div>${dragNote}</div>
-        <div class="opt-row-val">${opt.dragMult.toFixed(1)}×</div>
-      </div>
-      <div class="opt-row">
-        <div><div class="opt-row-label">Маса снаряду</div>${massNote}</div>
-        <div class="opt-row-val">${opt.massMult.toFixed(1)}×</div>
-      </div>
-      <div class="opt-row">
-        <div><div class="opt-row-label">Кут пуску</div></div>
-        <div class="opt-row-val">${opt.angle.toFixed(1)}°</div>
-      </div>
-      <div class="opt-row">
-        <div><div class="opt-row-label">Макс. висота</div></div>
-        <div class="opt-row-val">${(maxH/1000).toFixed(1)} км</div>
-      </div>
-      <div class="opt-row">
-        <div><div class="opt-row-label">Час польоту</div></div>
-        <div class="opt-row-val">${tFlight.toFixed(0)} с</div>
-      </div>
-    `;
+    document.getElementById('optConfirm').textContent = `✅ ПЕРЕЙТИ НА ${best.rocket.name.toUpperCase()}`;
     document.getElementById('optConfirm').disabled = false;
+
+  } else {
+    // Жодна ракета не долітає при стандартних умовах
+    html += `
+      <div class="opt-warn">
+        ❌ Відстань <b>${distKm} км</b> занадто велика.<br>
+        При стандартній гравітації та опорі повітря <b>жодна ракета не долетить</b>.<br><br>
+        Зменши відстань або зміни базові умови вручну.
+      </div>
+    `;
+    document.getElementById('optConfirm').textContent = '✅ ПІДТВЕРДИТИ';
+    document.getElementById('optConfirm').disabled = true;
   }
 
   document.getElementById('optContent').innerHTML = html;
@@ -1473,13 +1464,25 @@ function showOptimalModal() {
 }
 
 function applyOptimal() {
-  if (!optimalParams || !optimalParams.possible) return;
-  gravSlider.value = optimalParams.gravity;
-  document.getElementById('gravVal').textContent = optimalParams.gravity.toFixed(2);
-  dragSlider.value = optimalParams.dragMult;
-  document.getElementById('dragVal').textContent = optimalParams.dragMult.toFixed(1);
-  massSlider.value = optimalParams.massMult;
-  document.getElementById('massVal').textContent = optimalParams.massMult.toFixed(1);
+  if (!optimalSolution) return;
+
+  // Перемикаємо ракету якщо рекомендована інша
+  if (optimalSolution.rocket.id !== ST.currentRocket.id) {
+    ST.currentRocket = optimalSolution.rocket;
+    document.querySelectorAll('.rocket-btn').forEach((b, i) => {
+      b.classList.toggle('active', ROCKETS[i].id === optimalSolution.rocket.id);
+    });
+    updateSpecs();
+  }
+
+  // Встановлюємо стандартні умови
+  gravSlider.value = 9.81;
+  document.getElementById('gravVal').textContent = '9.81';
+  dragSlider.value = 1.0;
+  document.getElementById('dragVal').textContent = '1.0';
+  massSlider.value = 1.0;
+  document.getElementById('massVal').textContent = '1.0';
+
   closeOptimal();
   updatePreview();
 }
