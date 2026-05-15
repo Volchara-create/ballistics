@@ -191,6 +191,30 @@
     /* === КНОПКА ПУСК === */
     .launch-wrap { padding: 10px 12px; border-top: 1px solid #1a3050; flex-shrink: 0; }
 
+    .repoint-row {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .repoint-btn {
+      flex: 1;
+      padding: 7px 4px;
+      background: rgba(10,16,32,0.6);
+      border-radius: 6px;
+      color: #8aaac8;
+      font-size: 0.65rem;
+      font-family: 'Courier New', monospace;
+      cursor: pointer;
+      letter-spacing: 1px;
+      transition: all 0.15s;
+    }
+    #repointLaunch { border: 1px solid #ff9800; color: #ff9800; }
+    #repointLaunch:hover { background: rgba(255,152,0,0.15); }
+    #repointTarget { border: 1px solid #4dd0e1; color: #4dd0e1; }
+    #repointTarget:hover { background: rgba(77,208,225,0.15); }
+    .repoint-btn:disabled { opacity: 0.25; cursor: not-allowed; }
+
     #launchBtn {
       width: 100%;
       padding: 12px;
@@ -511,6 +535,10 @@
 
     <div class="launch-wrap">
       <button id="launchBtn" disabled>🚀 ПУСК</button>
+      <div class="repoint-row">
+        <button class="repoint-btn" id="repointLaunch" disabled onclick="repointLaunch()">🔴 Змінити старт</button>
+        <button class="repoint-btn" id="repointTarget" disabled onclick="repointTarget()">🎯 Змінити ціль</button>
+      </div>
     </div>
   </div><!-- /panel -->
 
@@ -871,6 +899,7 @@ map.on('click', e => {
     ST.launchMarker = L.marker(e.latlng, { icon: mkIcon('🔴') }).addTo(map);
     setMode('target');
     document.getElementById('infoBox').innerHTML = 'Тепер клікни на <b>ціль 🎯</b>';
+    updateRepointBtns();
 
   } else if (ST.mode === 'target') {
     ST.targetPt = e.latlng;
@@ -878,6 +907,7 @@ map.on('click', e => {
     ST.targetMarker = L.marker(e.latlng, { icon: mkIcon('🎯') }).addTo(map);
     setMode('ready');
     document.getElementById('launchBtn').disabled = false;
+    updateRepointBtns();
     updatePreview();
   }
 });
@@ -1086,6 +1116,7 @@ function doLaunch() {
 
       setMode('ready');
       document.getElementById('launchBtn').disabled = false;
+      updateRepointBtns();
 
       document.getElementById('infoBox').innerHTML = `
         💥 <b>Влучання!</b><br>
@@ -1098,6 +1129,39 @@ function doLaunch() {
   }
 
   step();
+}
+
+// ============================================================
+// ЗМІНА ТОЧОК БЕЗ СКИДАННЯ ПАРАМЕТРІВ
+// ============================================================
+function repointLaunch() {
+  if (ST.animId) { cancelAnimationFrame(ST.animId); ST.animId = null; }
+  if (ST.launchMarker) { ST.launchMarker.remove(); ST.launchMarker = null; }
+  if (ST.trajLine) { ST.trajLine.remove(); ST.trajLine = null; }
+  if (ST.groundLine) { ST.groundLine.remove(); ST.groundLine = null; }
+  ST.launchPt = null;
+  // Ціль залишаємо
+  setMode('launch');
+  document.getElementById('launchBtn').disabled = true;
+  document.getElementById('infoBox').innerHTML = 'Клікни нове <b>місце запуску 🔴</b>';
+  updateRepointBtns();
+}
+
+function repointTarget() {
+  if (ST.animId) { cancelAnimationFrame(ST.animId); ST.animId = null; }
+  if (ST.targetMarker) { ST.targetMarker.remove(); ST.targetMarker = null; }
+  if (ST.trajLine) { ST.trajLine.remove(); ST.trajLine = null; }
+  if (ST.groundLine) { ST.groundLine.remove(); ST.groundLine = null; }
+  ST.targetPt = null;
+  setMode('target');
+  document.getElementById('launchBtn').disabled = true;
+  document.getElementById('infoBox').innerHTML = 'Клікни нову <b>ціль 🎯</b>';
+  updateRepointBtns();
+}
+
+function updateRepointBtns() {
+  document.getElementById('repointLaunch').disabled = !ST.launchPt && !ST.targetPt;
+  document.getElementById('repointTarget').disabled = !ST.launchPt;
 }
 
 // ============================================================
