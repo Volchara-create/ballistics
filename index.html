@@ -274,6 +274,106 @@
       50% { transform: scale(1.3); }
     }
 
+    /* === ВІКНО ОПТИМАЛЬНИХ ПАРАМЕТРІВ === */
+    .opt-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 8888;
+      align-items: center;
+      justify-content: center;
+    }
+    .opt-overlay.show { display: flex; }
+
+    .opt-modal {
+      background: #0d1830;
+      border: 1px solid #27ae60;
+      border-radius: 12px;
+      width: 400px;
+      max-width: 95vw;
+      padding: 22px 24px;
+      font-size: 0.78rem;
+      color: #c8d8f0;
+      font-family: 'Courier New', monospace;
+    }
+
+    .opt-modal h3 {
+      color: #27ae60;
+      letter-spacing: 2px;
+      font-size: 0.85rem;
+      margin-bottom: 14px;
+      text-align: center;
+    }
+
+    .opt-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 7px 10px;
+      background: rgba(10,16,32,0.6);
+      border: 1px solid #1a3050;
+      border-radius: 6px;
+      margin-bottom: 6px;
+    }
+    .opt-row-label { color: #8090a8; }
+    .opt-row-val { color: #4dd0e1; font-weight: bold; }
+    .opt-row-note { color: #556677; font-size: 0.65rem; margin-top: 2px; }
+
+    .opt-warn {
+      background: rgba(231,76,60,0.08);
+      border: 1px solid #e74c3c;
+      border-radius: 8px;
+      padding: 10px 12px;
+      color: #e74c3c;
+      margin-bottom: 10px;
+      font-size: 0.75rem;
+      line-height: 1.6;
+    }
+
+    .opt-info {
+      background: rgba(39,174,96,0.08);
+      border: 1px solid #27ae60;
+      border-radius: 8px;
+      padding: 10px 12px;
+      color: #8aaac8;
+      margin-bottom: 12px;
+      font-size: 0.72rem;
+      line-height: 1.6;
+    }
+    .opt-info b { color: #2ecc71; }
+
+    .opt-btns { display: flex; gap: 8px; margin-top: 14px; }
+
+    .opt-btn-confirm {
+      flex: 1;
+      padding: 10px;
+      background: linear-gradient(135deg, #1e8449, #145a32);
+      border: 1px solid #27ae60;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 0.8rem;
+      font-weight: bold;
+      cursor: pointer;
+      font-family: 'Courier New', monospace;
+      letter-spacing: 1px;
+    }
+    .opt-btn-confirm:hover { background: linear-gradient(135deg, #27ae60, #1e8449); }
+
+    .opt-btn-manual {
+      flex: 1;
+      padding: 10px;
+      background: rgba(10,16,32,0.6);
+      border: 1px solid #2a5080;
+      border-radius: 8px;
+      color: #8aaac8;
+      font-size: 0.8rem;
+      cursor: pointer;
+      font-family: 'Courier New', monospace;
+      letter-spacing: 1px;
+    }
+    .opt-btn-manual:hover { border-color: #4dd0e1; color: #4dd0e1; }
+
     /* === ТУТОРІАЛ === */
     .tut-btn {
       border-color: #27ae60;
@@ -544,6 +644,18 @@
 
   <div id="map"></div>
 </div><!-- /main -->
+
+<!-- ВІКНО ОПТИМАЛЬНИХ ПАРАМЕТРІВ -->
+<div class="opt-overlay" id="optOverlay">
+  <div class="opt-modal">
+    <h3>⚡ ОПТИМАЛЬНІ ПАРАМЕТРИ ЗАПУСКУ</h3>
+    <div id="optContent"></div>
+    <div class="opt-btns">
+      <button class="opt-btn-confirm" id="optConfirm" onclick="applyOptimal()">✅ ПІДТВЕРДИТИ</button>
+      <button class="opt-btn-manual" onclick="closeOptimal()">✏️ ВРУЧНУ</button>
+    </div>
+  </div>
+</div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
@@ -909,6 +1021,7 @@ map.on('click', e => {
     document.getElementById('launchBtn').disabled = false;
     updateRepointBtns();
     updatePreview();
+    showOptimalModal();
   }
 });
 
@@ -1129,6 +1242,125 @@ function doLaunch() {
   }
 
   step();
+}
+
+// ============================================================
+// ВІКНО ОПТИМАЛЬНИХ ПАРАМЕТРІВ
+// ============================================================
+let optimalParams = null; // збережемо щоб застосувати
+
+function calcOptimalParams(dist, rocket) {
+  const gravity = 9.81;
+  const dragMult = 1.0;
+
+  // Спочатку пробуємо масу 1.0
+  let angle = findAngle(dist, rocket, gravity, dragMult, 1.0);
+  if (angle !== null) {
+    return { gravity, dragMult, massMult: 1.0, angle, possible: true };
+  }
+
+  // Збільшуємо масу (важча ракета менше гальмується повітрям → далі летить)
+  for (let m = 1.5; m <= 5.0; m += 0.5) {
+    angle = findAngle(dist, rocket, gravity, dragMult, m);
+    if (angle !== null) {
+      return { gravity, dragMult, massMult: m, angle, possible: true };
+    }
+  }
+
+  // Спробуємо зменшити опір повітря
+  for (let d = 0.7; d >= 0; d -= 0.1) {
+    angle = findAngle(dist, rocket, gravity, parseFloat(d.toFixed(1)), 1.0);
+    if (angle !== null) {
+      return { gravity, dragMult: parseFloat(d.toFixed(1)), massMult: 1.0, angle, possible: true };
+    }
+  }
+
+  return { possible: false };
+}
+
+function showOptimalModal() {
+  if (!ST.launchPt || !ST.targetPt) return;
+
+  const r = ST.currentRocket;
+  const dist = haversineDist(ST.launchPt.lat, ST.launchPt.lng, ST.targetPt.lat, ST.targetPt.lng);
+  const opt = calcOptimalParams(dist, r);
+  optimalParams = opt;
+
+  let html = '';
+
+  if (!opt.possible) {
+    html = `
+      <div class="opt-warn">
+        ❌ Ракета <b>${r.name}</b> не може досягти цілі навіть при максимальних налаштуваннях.<br>
+        Відстань: <b>${(dist/1000).toFixed(0)} км</b>, максимум ракети: <b>${r.maxRangeKm} км</b><br><br>
+        Обери іншу ракету або перенеси точки ближче.
+      </div>
+    `;
+    document.getElementById('optConfirm').disabled = true;
+  } else {
+    const traj = simulate(r.v0, opt.angle, r.mass * opt.massMult, r.Cd * Math.max(0.001, opt.dragMult), r.diameter, opt.gravity);
+    const maxH = Math.max(...traj.map(p => p.y));
+    const tFlight = traj[traj.length - 1].t;
+
+    const massNote = opt.massMult !== 1.0
+      ? `<div class="opt-row-note">збільшено щоб ракета долетіла</div>`
+      : `<div class="opt-row-note">стандартна бойова маса</div>`;
+
+    const dragNote = opt.dragMult < 1.0
+      ? `<div class="opt-row-note">зменшено щоб ракета долетіла</div>`
+      : `<div class="opt-row-note">стандартний опір Землі</div>`;
+
+    html = `
+      <div class="opt-info">
+        Ракета: <b>${r.name}</b> → Ціль за <b>${(dist/1000).toFixed(1)} км</b>
+      </div>
+
+      <div class="opt-row">
+        <div><div class="opt-row-label">Гравітація</div><div class="opt-row-note">стандарт Землі</div></div>
+        <div class="opt-row-val">9.81 м/с²</div>
+      </div>
+      <div class="opt-row">
+        <div><div class="opt-row-label">Опір повітря</div>${dragNote}</div>
+        <div class="opt-row-val">${opt.dragMult.toFixed(1)}×</div>
+      </div>
+      <div class="opt-row">
+        <div><div class="opt-row-label">Маса снаряду</div>${massNote}</div>
+        <div class="opt-row-val">${opt.massMult.toFixed(1)}×</div>
+      </div>
+      <div class="opt-row">
+        <div><div class="opt-row-label">Розрахований кут пуску</div></div>
+        <div class="opt-row-val">${opt.angle.toFixed(1)}°</div>
+      </div>
+      <div class="opt-row">
+        <div><div class="opt-row-label">Макс. висота</div></div>
+        <div class="opt-row-val">${(maxH/1000).toFixed(1)} км</div>
+      </div>
+      <div class="opt-row">
+        <div><div class="opt-row-label">Час польоту</div></div>
+        <div class="opt-row-val">${tFlight.toFixed(0)} с</div>
+      </div>
+    `;
+    document.getElementById('optConfirm').disabled = false;
+  }
+
+  document.getElementById('optContent').innerHTML = html;
+  document.getElementById('optOverlay').classList.add('show');
+}
+
+function applyOptimal() {
+  if (!optimalParams || !optimalParams.possible) return;
+  gravSlider.value = optimalParams.gravity;
+  document.getElementById('gravVal').textContent = optimalParams.gravity.toFixed(2);
+  dragSlider.value = optimalParams.dragMult;
+  document.getElementById('dragVal').textContent = optimalParams.dragMult.toFixed(1);
+  massSlider.value = optimalParams.massMult;
+  document.getElementById('massVal').textContent = optimalParams.massMult.toFixed(1);
+  closeOptimal();
+  updatePreview();
+}
+
+function closeOptimal() {
+  document.getElementById('optOverlay').classList.remove('show');
 }
 
 // ============================================================
