@@ -1,0 +1,6 @@
+services:
+  ballistics:
+    build: .
+    ports:
+      - "4012:80"
+    restart: unless-stopped
