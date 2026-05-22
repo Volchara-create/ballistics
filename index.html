@@ -434,26 +434,26 @@
     .impact-overlay {
       display: none;
       position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.7);
-      z-index: 9000;
-      align-items: center;
-      justify-content: center;
+      top: 60px;
+      right: 294px; /* поруч з launchReport (260px + 16px + 18px відступ) */
+      z-index: 8600;
+      pointer-events: auto;
     }
-    .impact-overlay.show { display: flex; }
+    .impact-overlay.show { display: block; }
 
     .impact-modal {
-      background: #0d1830;
+      background: rgba(8,13,26,0.96);
       border: 1px solid #e74c3c;
       border-radius: 12px;
-      width: 420px;
+      width: 320px;
       max-width: 96vw;
-      max-height: 85vh;
+      max-height: calc(100vh - 80px);
       overflow-y: auto;
-      padding: 22px 24px;
-      font-size: 0.78rem;
+      padding: 16px 18px;
+      font-size: 0.75rem;
       color: #c8d8f0;
       font-family: 'Courier New', monospace;
+      box-shadow: 0 0 20px rgba(231,76,60,0.2);
     }
 
     .impact-modal h3 {
@@ -1020,6 +1020,21 @@
   </div>
 </div>
 
+<!-- ЗВІТ ЗАПУСКУ -->
+<div id="launchReport" style="
+  display:none; position:fixed; top:60px; right:16px; z-index:8500;
+  background:rgba(8,13,26,0.96); border:1px solid #4dd0e1;
+  border-radius:10px; padding:14px 16px; width:260px;
+  font-family:'Courier New',monospace; font-size:0.72rem; color:#c8d8f0;
+  box-shadow:0 0 20px rgba(77,208,225,0.2);
+">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+    <span style="color:#4dd0e1;font-size:0.65rem;letter-spacing:2px;text-transform:uppercase">📊 Звіт запуску</span>
+    <span onclick="document.getElementById('launchReport').style.display='none'" style="cursor:pointer;color:#e74c3c;font-size:0.8rem">✕</span>
+  </div>
+  <div id="launchReportContent"></div>
+</div>
+
 <!-- ДЕТАЛЬНІ РОЗРАХУНКИ -->
 <div class="calc-overlay" id="calcOverlay" onclick="hideCalcDetail(event)">
   <div class="calc-modal">
@@ -1195,14 +1210,14 @@ const AIR_DEFENSE = [
     id: 'arrow3',
     name: 'Arrow-3',
     country: '🇮🇱 Ізраїль',
-    maxRangeKm: 2400,
+    maxRangeKm: 400,
     maxAltKm: 150,
     minAltKm: 50,
     shots: 1,
     basePkill: 0.80,
     maxEffMach: 15,
     color: '#26a69a',
-    desc: 'Екзоатмосферний — б\'є балістику у космосі (50–150 км). Кінетичний перехоплювач.'
+    desc: 'Екзоатмосферний — б\'є балістику у космосі (50–150 км). Кінетичний перехоплювач. Радіус дії ~400 км.'
   },
   // --- НОВІ СИСТЕМИ ---
   {
@@ -1222,7 +1237,7 @@ const AIR_DEFENSE = [
     id: 'sm3',
     name: 'Aegis SM-3',
     country: '🇺🇸 НАТО (морський)',
-    maxRangeKm: 500,
+    maxRangeKm: 300,
     maxAltKm: 500,
     minAltKm: 80,
     shots: 1,
@@ -1361,75 +1376,111 @@ function calcInterception(defense, traj, rocket) {
 
 // Показує модальне вікно аналізу ППО
 function showPPOAnalysis(traj, rocket, launchPt, bear, isShortFall) {
-  const totalKm = (traj[traj.length-1].x / 1000).toFixed(0);
-  const maxH_km = (Math.max(...traj.map(p=>p.y)) / 1000).toFixed(0);
-  const mach    = traj.maxMach.toFixed(1);
+  const totalKm  = (traj[traj.length-1].x / 1000).toFixed(0);
+  const maxH_km  = ((traj.maxH || Math.max(...traj.map(p=>p.y))) / 1000).toFixed(0);
+  const mach     = traj.maxMach.toFixed(1);
+
+  // Знаходимо позиції ППО які реально близько до траєкторії (≤ sys.maxRangeKm)
+  function nearSites(defId) {
+    const def = AIR_DEFENSE.find(d => d.id === defId);
+    if (!def) return [];
+    return DEFENSE_SITES.filter(s => {
+      if (s.systemId !== defId) return false;
+      const sLL = L.latLng(s.lat, s.lng);
+      for (const p of traj) {
+        const [ptLat, ptLng] = destPoint(launchPt.lat, launchPt.lng, p.x, bear);
+        const ptLL = L.latLng(ptLat, ptLng);
+        if (sLL.distanceTo(ptLL) / 1000 <= def.maxRangeKm) return true;
+      }
+      return false;
+    });
+  }
+
+  function barHtml(pct, color) {
+    return `<div style="background:#0a1428;border-radius:4px;height:8px;width:100%;margin:4px 0">
+      <div style="background:${color};height:8px;border-radius:4px;width:${Math.max(2,pct)}%;transition:width 0.5s"></div>
+    </div>`;
+  }
 
   let html = `
     <div class="ppo-intercept-info">
-      🚀 <b>${rocket.name}</b> &nbsp;|&nbsp;
-      Дальність: <b>${totalKm} км</b> &nbsp;|&nbsp;
-      Макс. висота: <b>${maxH_km} км</b> &nbsp;|&nbsp;
-      Мах: <b>${mach}</b><br>
-      ${isShortFall ? '<span style="color:#ff9800">⚠️ Ракета не долетіла до цілі</span><br>' : ''}
-      <small style="color:#6080a0">
-        💡 Ймовірність розрахована з урахуванням: швидкості, висоти, маневрування та ЕПР
-      </small>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:8px">
+        <span>🚀 <b>${rocket.name}</b></span>
+        <span>📍 Дальність: <b>${totalKm} км</b></span>
+        <span>🏔 Висота: <b>${maxH_km} км</b></span>
+        <span>💨 Мах: <b>${mach}</b></span>
+      </div>
+      ${isShortFall ? '<div style="color:#ff9800;margin-bottom:6px">⚠️ Ракета не долетіла до цілі — аналіз по фактичній траєкторії</div>' : ''}
+      <div style="font-size:0.62rem;color:#4a6a8a;border-top:1px solid #1a3050;padding-top:6px">
+        💡 Фактори: базова Pk × f(швидкість) × f(висота) × f(маневр) × f(ЕПР) — залп підвищує шанс
+      </div>
     </div>
-    <div class="ppo-section-title">Системи ППО — ймовірність знищення</div>
+    <div class="ppo-section-title">Системи ППО по типах</div>
   `;
 
   for (const def of AIR_DEFENSE) {
-    const r = calcInterception(def, traj, rocket);
+    const r     = calcInterception(def, traj, rocket);
+    const sites = nearSites(def.id);
+    const hasSites = sites.length > 0;
 
-    let lvl = 'none', pTxt = 'н/д';
-    if (r.canEngage) {
-      const pct = Math.round(r.pkillSalvo * 100);
-      pTxt = pct + '%';
-      lvl = pct >= 70 ? 'high' : pct >= 35 ? 'medium' : 'low';
-    }
-
-    const p1Pct  = r.canEngage ? Math.round(r.pkill * 100) : '—';
-    const pSPct  = r.canEngage ? Math.round(r.pkillSalvo * 100) : '—';
+    const p1Pct  = r.canEngage ? Math.round(r.pkill * 100) : 0;
+    const pSPct  = r.canEngage ? Math.round(r.pkillSalvo * 100) : 0;
     const shots  = r.shots || def.shots || 2;
+    const barColor = pSPct >= 70 ? '#ef5350' : pSPct >= 40 ? '#ff9800' : '#27ae60';
+    const lvl    = r.canEngage ? (pSPct >= 70 ? 'high' : pSPct >= 35 ? 'medium' : 'low') : 'none';
+    const pTxt   = r.canEngage ? pSPct + '%' : '—';
+
+    const reasonNot = !r.canEngage ? (() => {
+      const hMax = (traj.maxH || 0) / 1000;
+      if (hMax < def.minAltKm) return `ракета летить нижче мін. висоти перехоплення (${def.minAltKm} км)`;
+      if (hMax > def.maxAltKm * 1.6) return `ракета летить вище ефективної зони (>${def.maxAltKm} км)`;
+      return 'поза зоною ураження';
+    })() : null;
 
     html += `
       <div class="ppo-sys">
         <div class="ppo-sys-head">
-          <div style="width:8px;height:8px;border-radius:50%;background:${def.color};flex-shrink:0"></div>
-          <span class="ppo-sys-name">${def.name}</span>
-          <span class="ppo-sys-country">${def.country}</span>
-        </div>
-        ${r.canEngage ? `
-        <div class="ppo-factors">
-          <div class="ppo-factor">📡 Радіус: <b>${def.maxRangeKm} км</b></div>
-          <div class="ppo-factor">↕️ Висота: <b>${def.minAltKm}–${def.maxAltKm} км</b></div>
-          <div class="ppo-factor">⚡ Швидкість: <b>×${r.speedF.toFixed(2)}</b></div>
-          <div class="ppo-factor">↑ Висота: <b>×${r.altF.toFixed(2)}</b></div>
-          <div class="ppo-factor">🎯 Маневр: <b>×${r.manF.toFixed(2)}</b></div>
-          <div class="ppo-factor">📐 ЕПР: <b>×${r.sizeF.toFixed(2)}</b></div>
-        </div>
-        ` : `<div style="font-size:0.65rem;color:#445566;padding:4px 0">❌ Поза зоною ураження (висота/дальність)</div>`}
-        <div class="ppo-result ${lvl}">
-          <div class="ppo-pkill ${lvl}">${pTxt}</div>
-          <div class="ppo-detail">
-            ${r.canEngage
-              ? `<b>1 постріл:</b> ${p1Pct}%<br>
-                 <b>Залп ×${shots} ракет:</b> <span style="font-size:1.05em;font-weight:bold">${pSPct}%</span><br>
-                 <span style="color:#6080a0;font-size:0.6rem">${def.desc}</span>`
-              : `<span style="color:#445566">${def.desc}</span>`
-            }
+          <div style="width:8px;height:8px;border-radius:50%;background:${def.color};flex-shrink:0;margin-top:2px"></div>
+          <div style="flex:1">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span class="ppo-sys-name">${def.name}</span>
+              <span style="font-size:0.72rem;color:${barColor};font-weight:bold">${pTxt}</span>
+            </div>
+            <span class="ppo-sys-country">${def.country}</span>
           </div>
         </div>
+
+        ${r.canEngage ? `
+          ${barHtml(pSPct, barColor)}
+          <div class="ppo-factors" style="margin-top:6px">
+            <div class="ppo-factor">📡 Радіус: <b>${def.maxRangeKm} км</b></div>
+            <div class="ppo-factor">↕️ Висота: <b>${def.minAltKm}–${def.maxAltKm} км</b></div>
+            <div class="ppo-factor">🔫 Залп: <b>×${shots} ракет</b></div>
+            <div class="ppo-factor" title="Вплив швидкості ракети на точність перехоплювача">⚡ Швидк.: <b>${Math.round(r.speedF*100)}%</b></div>
+            <div class="ppo-factor" title="Вплив висоти польоту">↑ Висота: <b>${Math.round(r.altF*100)}%</b></div>
+            <div class="ppo-factor" title="Маневровість цілі — чи може ухилитись">🎯 Маневр: <b>${Math.round(r.manF*100)}%</b></div>
+            <div class="ppo-factor" title="Ефективна площа розсіювання — наскільки добре РЛС бачить ракету">📐 ЕПР: <b>${Math.round(r.sizeF*100)}%</b></div>
+          </div>
+          <div style="font-size:0.65rem;color:#7090b0;margin-top:4px;border-top:1px solid #112233;padding-top:4px">
+            1 постріл: <b>${p1Pct}%</b> → залп ×${shots}: <b style="color:${barColor}">${pSPct}%</b>
+            &nbsp;|&nbsp; <span style="color:#4a6a8a">${def.desc}</span>
+          </div>
+          ${hasSites ? `
+          <div style="font-size:0.62rem;color:#4dd0e1;margin-top:4px">
+            📌 Позиції в зоні ураження: ${sites.map(s=>`${s.flag} ${s.name}`).join(', ')}
+          </div>` : `<div style="font-size:0.62rem;color:#445566;margin-top:4px">📌 Жодна позиція не в зоні ураження</div>`}
+        ` : `
+          <div style="font-size:0.65rem;color:#334455;padding:4px 0">
+            ❌ Не може перехопити — ${reasonNot}
+          </div>
+          <div style="font-size:0.6rem;color:#3a4a5a;padding-bottom:2px">${def.desc}</div>
+        `}
       </div>`;
   }
 
-  // Якщо збили — ураження від осколків
   html += `
-    <div class="ppo-section-title" style="margin-top:12px">Ураження при перехопленні в повітрі</div>
-    <div class="ppo-frag-box">
-      ${calcFragDamage(rocket, traj)}
-    </div>
+    <div class="ppo-section-title" style="margin-top:12px">Ураження від осколків при збитті в повітрі</div>
+    <div class="ppo-frag-box">${calcFragDamage(rocket, traj)}</div>
   `;
 
   document.getElementById('ppoContent').innerHTML = html;
@@ -1738,6 +1789,7 @@ function simulate(rocket, angleDeg, gravity, dragMult, massMult, opts = {}) {
   }
   pts.push({ x:s[0], y:0, z:s[2], t, thrust: false });
   pts.maxMach = maxMach;
+  pts.maxH = maxH;
   pts.lateralDrift = s[2];
   pts.reachedSpace = reachedSpace;
   pts.burnoutX = burnoutX;
@@ -2406,22 +2458,55 @@ function doLaunch() {
   if (ST.trajLine) { ST.trajLine.remove(); ST.trajLine = null; }
   if (ST.groundLine) { ST.groundLine.remove(); ST.groundLine = null; }
 
+  // Конвертуємо одразу в L.latLng — без двозначності [lat,lng] vs [lng,lat]
   const latlngs = traj.map(p => {
-    const mainPt = destPoint(ST.launchPt.lat, ST.launchPt.lng, p.x, bear);
-    if (Math.abs(p.z || 0) < 1) return mainPt;
+    const [lat, lng] = destPoint(ST.launchPt.lat, ST.launchPt.lng, p.x, bear);
+    if (Math.abs(p.z || 0) < 1) return L.latLng(lat, lng);
     const perpBear = bear + (p.z >= 0 ? Math.PI/2 : -Math.PI/2);
-    return destPoint(mainPt[0], mainPt[1], Math.abs(p.z), perpBear);
+    const [lat2, lng2] = destPoint(lat, lng, Math.abs(p.z), perpBear);
+    return L.latLng(lat2, lng2);
   });
 
-  // Реальна точка приземлення (може бути коротшою за ціль)
-  const actualLandPt = L.latLng(latlngs[latlngs.length - 1]);
+  // Реальна точка приземлення (вже L.latLng об'єкт)
+  const actualLandPt = latlngs[latlngs.length - 1];
 
   ST.trajLine = L.polyline([], {
     color: isShortFall ? '#e74c3c' : r.color,
     weight: 2.5, dashArray: '7,5', opacity: 0.9
   }).addTo(map);
 
-  let missileMarker = L.marker(ST.launchPt, { icon: mkIcon(r.icon, 20) }).addTo(map);
+  // Тимчасові маркери для shortfall
+  ST._tempMarkers = ST._tempMarkers || [];
+  ST._tempMarkers.forEach(m => m.remove());
+  ST._tempMarkers = [];
+  const tempMarkers = ST._tempMarkers;
+
+  // Якщо не долітає — показуємо пунктирну лінію від точки падіння до цілі + маркер "⚠️ падіння тут"
+  if (isShortFall) {
+    const landPtLL = actualLandPt; // вже L.latLng
+    const dottedLine = L.polyline([landPtLL, ST.targetPt], {
+      color: '#ff9800', weight: 1.5, dashArray: '4,8', opacity: 0.5
+    }).addTo(map);
+    const warnMark = L.marker(landPtLL, {
+      icon: L.divIcon({
+        html: '<div style="font-size:18px;filter:drop-shadow(0 0 4px #ff9800)">⚠️</div>',
+        className: '', iconSize: [20, 20], iconAnchor: [10, 10]
+      })
+    }).addTo(map).bindTooltip(`⚠️ Падіння тут: ${(actualLandDist/1000).toFixed(1)} км`, { permanent: true, direction: 'top', offset: [0, -14] });
+    tempMarkers.push(dottedLine, warnMark);
+  }
+
+  if (ST.missileMarker) { ST.missileMarker.remove(); ST.missileMarker = null; }
+  ST.missileMarker = L.marker(ST.launchPt, { icon: mkIcon(r.icon, 20) }).addTo(map);
+  const missileMarker = ST.missileMarker;
+
+  // Наближаємо карту — instant (без анімації), щоб step() не стартував на старому зумі
+  const viewTarget = isShortFall ? actualLandPt : ST.targetPt;
+  const flightDistKm = (isShortFall ? actualLandDist : dist) / 1000;
+  const autoZoom = flightDistKm < 30 ? 12 : flightDistKm < 100 ? 10 : flightDistKm < 500 ? 8 : flightDistKm < 2000 ? 6 : 5;
+  const midLat = (ST.launchPt.lat + viewTarget.lat) / 2;
+  const midLng = (ST.launchPt.lng + viewTarget.lng) / 2;
+  map.setView([midLat, midLng], autoZoom, { animate: false });
 
   setMode('flying');
   ST._flyStart = Date.now();
@@ -2439,228 +2524,241 @@ function doLaunch() {
   const animStartTime = performance.now();
   const timeEl = document.getElementById('sTime');
 
-  const sitesTriggered = new Set();
+  // Pre-check: знаходимо точку перехоплення ДО анімації (незалежно від швидкості)
+  let preInterceptIdx = -1;
+  let preInterceptSite = null;
+  let preInterceptSys = null;
+  let preInterceptRes = null;
+
+  if (!isShortFall && defenseSitesVisible) {
+    outer: for (let pi = 0; pi < latlngs.length; pi++) {
+      const curLatLng = latlngs[pi]; // вже L.latLng об'єкт
+      const curPt = traj[Math.min(pi, traj.length - 1)];
+      const curAlt_km = (curPt?.y ?? 0) / 1000;
+      for (const site of DEFENSE_SITES) {
+        const sys = getDefSys(site.systemId);
+        if (!sys) continue;
+        const siteLat = L.latLng(site.lat, site.lng);
+        const distToMissile = siteLat.distanceTo(curLatLng) / 1000;
+        if (distToMissile > sys.maxRangeKm) continue;
+        if (curAlt_km < sys.minAltKm || curAlt_km > sys.maxAltKm * 1.3) continue;
+        const interRes = calcInterception(sys, traj, r);
+        if (!interRes.canEngage) continue;
+        if (Math.random() > interRes.pkillSalvo) continue;
+        // Збиття! Запам'ятовуємо
+        preInterceptIdx = pi;
+        preInterceptSite = site;
+        preInterceptSys = sys;
+        preInterceptRes = interRes;
+        break outer;
+      }
+    }
+  }
+
   let intercepted = false;
+  let i = 0;
+
+  function triggerInterception(interceptPt) {
+    intercepted = true;
+    clearTempMarkers();
+    cancelAnimationFrame(ST.animId);
+    missileMarker.remove();
+    ST.missileMarker = null;
+
+    const site      = preInterceptSite;
+    const sys       = preInterceptSys;
+    const interRes  = preInterceptRes;
+    const curAlt_km = (traj[Math.min(preInterceptIdx, traj.length-1)]?.y ?? 0) / 1000;
+    const siteLat   = L.latLng(site.lat, site.lng);
+    const distToMissile = siteLat.distanceTo(interceptPt) / 1000;
+
+    const intMarker = L.marker([site.lat, site.lng], {
+      icon: L.divIcon({ html:'<div style="font-size:18px">🚀</div>', className:'', iconSize:[18,18], iconAnchor:[9,9] })
+    }).addTo(map);
+
+    let intStep = 0;
+    const intSteps = 30;
+
+    function animateInterceptor() {
+      intStep++;
+      const frac = intStep / intSteps;
+      intMarker.setLatLng([
+        site.lat + (interceptPt.lat - site.lat) * frac,
+        site.lng + (interceptPt.lng - site.lng) * frac
+      ]);
+      if (intStep < intSteps) {
+        requestAnimationFrame(animateInterceptor);
+        return;
+      }
+      intMarker.remove();
+      ST.trajLine.setLatLngs(latlngs.slice(0, preInterceptIdx));
+      const boomPt = interceptPt;
+
+      const bFlash = L.marker(boomPt, { icon: L.divIcon({
+        html: `<div style="text-align:center;line-height:1.2">
+          <div style="font-size:52px;filter:drop-shadow(0 0 12px #ff6600)">💥</div>
+          <div style="font-size:0.65rem;color:#4dd0e1;background:rgba(8,13,26,0.85);padding:2px 6px;border-radius:4px;border:1px solid #4dd0e1;white-space:nowrap;margin-top:2px">${sys.country}</div>
+        </div>`,
+        className:'', iconSize:[80,60], iconAnchor:[40,26]
+      })}).addTo(map);
+
+      const waveDiv = document.createElement('div');
+      waveDiv.style.cssText = 'position:absolute;border-radius:50%;border:3px solid rgba(255,150,0,0.9);width:0;height:0;transform:translate(-50%,-50%);pointer-events:none;z-index:9999;transition:width 0.8s ease-out,height 0.8s ease-out,opacity 0.8s ease-out;';
+      const wavePt = map.latLngToLayerPoint(boomPt);
+      const mapPane = map.getPanes().overlayPane;
+      waveDiv.style.left = wavePt.x + 'px';
+      waveDiv.style.top  = wavePt.y + 'px';
+      mapPane.appendChild(waveDiv);
+      requestAnimationFrame(() => { waveDiv.style.width='120px'; waveDiv.style.height='120px'; waveDiv.style.opacity='0'; });
+      setTimeout(() => waveDiv.remove(), 900);
+
+      [[-0.02,0.025],[0.02,-0.02],[0,-0.03],[0.03,0.01],[-0.01,0.03]].forEach((off, idx) => {
+        setTimeout(() => {
+          const frag = L.marker([boomPt.lat+off[0], boomPt.lng+off[1]], {
+            icon: L.divIcon({ html:'<div style="font-size:14px">✦</div>', className:'', iconSize:[14,14], iconAnchor:[7,7] })
+          }).addTo(map);
+          setTimeout(() => frag.remove(), 800);
+        }, idx * 80);
+      });
+
+      setTimeout(() => { bFlash.setIcon(L.divIcon({ html:'<div style="font-size:32px;opacity:0.7">💨</div>', className:'', iconSize:[32,32], iconAnchor:[16,16] })); }, 600);
+      setTimeout(() => bFlash.remove(), 3000);
+
+      hideFlightControls();
+      setMode('ready');
+      document.getElementById('launchBtn').disabled = false;
+      updateRepointBtns();
+      savePPOData(traj, r, ST.launchPt, bear, false);
+      showLaunchReport({ rocket: r, distKm: dist/1000, flightSec: traj[traj.length-1].t, maxAltKm: (traj.maxH||0)/1000, maxMach: traj.maxMach, result:'INTERCEPTED', detail:`🛡️ ${sys.country} — ${site.name} (${sys.name})` });
+
+      const pctInt   = Math.round(interRes.pkill * 100);
+      const pctSalvo = Math.round(interRes.pkillSalvo * 100);
+      document.getElementById('infoBox').innerHTML = `
+        🛡️ <b>ПЕРЕХОПЛЕНО!</b><br>
+        <span style="color:#4dd0e1;font-size:0.85em">${sys.country}</span><br>
+        Позиція: <b>${site.flag} ${site.name}</b><br>
+        Система: <b>${sys.name}</b> (залп ×${interRes.shots})<br>
+        Ймов. збиття: <b>${pctInt}%</b> → залп: <b>${pctSalvo}%</b><br>
+        Висота: <b>${curAlt_km.toFixed(0)} км</b> | Відстань: <b>${distToMissile.toFixed(0)} км</b><br>
+        <br><small style="color:#42a5f5;cursor:pointer" onclick="openPPO()">🛡️ Детальний аналіз ППО →</small>
+      `;
+      setTimeout(() => openPPO(), 1500);
+    }
+    requestAnimationFrame(animateInterceptor);
+  }
 
   function step() {
-    if (i < latlngs.length) {
-      if (animSkipped) { i = latlngs.length; animSkipped = false; }
-      const curChunk = chunkSize * animSpeedMult;
-      const pts = latlngs.slice(0, Math.min(i + curChunk, latlngs.length));
-      ST.trajLine.setLatLngs(pts);
-      missileMarker.setLatLng(pts[pts.length - 1]);
-      // Оновлення таймера польоту під час анімації
-      const simFraction = Math.min(i / latlngs.length, 1);
-      const simTimeSec  = simFraction * flightTimeSec;
-      if (timeEl) timeEl.textContent = formatTime(simTimeSec) + ' ⏱';
-      i += curChunk;
+    if (animSkipped) {
+      animSkipped = false;
+      i = latlngs.length - 1;
+      ST.trajLine.setLatLngs(latlngs);
+      missileMarker.remove();
+      ST.missileMarker = null;
+      hideFlightControls();
+      onFlightEnd();
+      return;
+    }
 
-      // Check live interception by defense sites
-      if (!intercepted && defenseSitesVisible) {
-        const curLatLng = pts[pts.length - 1];
-        const trajIdx = Math.min(Math.floor(i), traj.length - 1);
-        const curPt = traj[trajIdx];
-        const curAlt_km = (curPt?.y ?? 0) / 1000;
+    const curChunk = Math.max(1, chunkSize * animSpeedMult);
+    const newI = Math.min(i + curChunk, latlngs.length - 1);
 
-        for (const site of DEFENSE_SITES) {
-          if (sitesTriggered.has(site.id)) continue;
-          const sys = getDefSys(site.systemId);
-          if (!sys) continue;
-          const siteLat = L.latLng(site.lat, site.lng);
-          const distToMissile = siteLat.distanceTo(curLatLng) / 1000; // km
-          if (distToMissile > sys.maxRangeKm) continue;
-          if (curAlt_km < sys.minAltKm || curAlt_km > sys.maxAltKm * 1.3) continue;
+    // Якщо є точка перехоплення і ми її досягли
+    if (preInterceptIdx >= 0 && !intercepted && newI >= preInterceptIdx) {
+      i = preInterceptIdx;
+      ST.trajLine.setLatLngs(latlngs.slice(0, i + 1));
+      missileMarker.setLatLng(latlngs[i]);
+      const p = latlngs[i];
+      const interceptPt = latlngs[i]; // вже L.latLng
+      triggerInterception(interceptPt);
+      return;
+    }
 
-          sitesTriggered.add(site.id);
+    i = newI;
+    ST.trajLine.setLatLngs(latlngs.slice(0, i + 1));
+    missileMarker.setLatLng(latlngs[i]);
 
-          // Розрахунок і кидок кубиків (залп кількох ракет)
-          const interRes = calcInterception(sys, traj, r);
-          if (!interRes.canEngage) continue;
-          if (Math.random() > interRes.pkillSalvo) continue; // промах залпу!
+    const simTimeSec = (i / (latlngs.length - 1)) * flightTimeSec;
+    if (timeEl) timeEl.textContent = formatTime(simTimeSec) + ' ⏱';
 
-          // INTERCEPTED!
-          intercepted = true;
-          cancelAnimationFrame(ST.animId);
-          missileMarker.remove();
-
-          // Animate interceptor from site to current missile position
-          const intMarker = L.marker([site.lat, site.lng], {
-            icon: L.divIcon({ html:'<div style="font-size:18px">🚀</div>', className:'', iconSize:[18,18], iconAnchor:[9,9] })
-          }).addTo(map);
-
-          const startSite = L.latLng(site.lat, site.lng);
-          const endPos = curLatLng;
-          let intStep = 0;
-          const intSteps = 30;
-
-          function animateInterceptor() {
-            intStep++;
-            const frac = intStep / intSteps;
-            const interpLat = startSite.lat + (endPos.lat - startSite.lat) * frac;
-            const interpLng = startSite.lng + (endPos.lng - startSite.lng) * frac;
-            intMarker.setLatLng([interpLat, interpLng]);
-
-            if (intStep < intSteps) {
-              requestAnimationFrame(animateInterceptor);
-            } else {
-              intMarker.remove();
-              ST.trajLine.setLatLngs(latlngs.slice(0, i));
-              const boomPt = endPos;
-
-              // === АНІМАЦІЯ ЗБИТТЯ ===
-              // 1. Спалах — великий вибух
-              const bFlash = L.marker(boomPt, { icon: L.divIcon({
-                html: '<div style="font-size:52px;filter:drop-shadow(0 0 12px #ff6600)">💥</div>',
-                className:'', iconSize:[52,52], iconAnchor:[26,26]
-              })}).addTo(map);
-
-              // 2. Ударна хвиля — коло що розширюється через CSS
-              const waveDiv = document.createElement('div');
-              waveDiv.style.cssText = `
-                position:absolute; border-radius:50%;
-                border: 3px solid rgba(255,150,0,0.9);
-                width:0; height:0;
-                transform: translate(-50%,-50%);
-                pointer-events:none; z-index:9999;
-                transition: width 0.8s ease-out, height 0.8s ease-out, opacity 0.8s ease-out;
-              `;
-              // Використовуємо Leaflet overlay для wave
-              const wavePt = map.latLngToLayerPoint(boomPt);
-              const mapPane = map.getPanes().overlayPane;
-              waveDiv.style.left = wavePt.x + 'px';
-              waveDiv.style.top  = wavePt.y + 'px';
-              mapPane.appendChild(waveDiv);
-              requestAnimationFrame(() => {
-                waveDiv.style.width  = '120px';
-                waveDiv.style.height = '120px';
-                waveDiv.style.opacity = '0';
-              });
-              setTimeout(() => waveDiv.remove(), 900);
-
-              // 3. Дрібні уламки навколо
-              const offsets = [[-0.02,0.025],[0.02,-0.02],[0,-0.03],[0.03,0.01],[-0.01,0.03]];
-              offsets.forEach((off, idx) => {
-                setTimeout(() => {
-                  const frag = L.marker([boomPt.lat+off[0], boomPt.lng+off[1]], { icon: L.divIcon({
-                    html: '<div style="font-size:14px">✦</div>',
-                    className:'', iconSize:[14,14], iconAnchor:[7,7]
-                  })}).addTo(map);
-                  setTimeout(() => frag.remove(), 800);
-                }, idx * 80);
-              });
-
-              // 4. Хмара диму
-              setTimeout(() => {
-                bFlash.setIcon(L.divIcon({ html:'<div style="font-size:32px;opacity:0.7">💨</div>', className:'', iconSize:[32,32], iconAnchor:[16,16] }));
-              }, 600);
-              setTimeout(() => bFlash.remove(), 3000);
-
-              hideFlightControls();
-              setMode('ready');
-              document.getElementById('launchBtn').disabled = false;
-              updateRepointBtns();
-              savePPOData(traj, r, ST.launchPt, bear, false);
-
-              const pctInt = Math.round(interRes.pkill * 100);
-              const pctSalvo = Math.round(interRes.pkillSalvo * 100);
-              document.getElementById('infoBox').innerHTML = `
-                🛡️ <b>ПЕРЕХОПЛЕНО!</b><br>
-                Система: <b>${site.flag} ${site.name}</b> (${sys.name})<br>
-                Ймовірність збиття: <b>${pctInt}% (1 ракета)</b><br>
-                Залп ×${interRes.shots}: <b>${pctSalvo}%</b><br>
-                Висота: <b>${curAlt_km.toFixed(0)} км</b> | Відстань: <b>${distToMissile.toFixed(0)} км</b><br>
-                <br><small style="color:#42a5f5;cursor:pointer" onclick="openPPO()">🛡️ Детальний аналіз ППО →</small>
-              `;
-              setTimeout(() => openPPO(), 1500);
-            }
-          }
-          requestAnimationFrame(animateInterceptor);
-          return; // Stop current step
-        }
-      }
-
+    if (i < latlngs.length - 1) {
       ST.animId = requestAnimationFrame(step);
     } else {
       ST.trajLine.setLatLngs(latlngs);
       missileMarker.remove();
-
+      ST.missileMarker = null;
       hideFlightControls();
+      onFlightEnd();
+    }
+  }
 
-      if (isShortFall) {
-        // Вибух де впала, а не де ціль
-        const boom = L.marker(actualLandPt, { icon: mkIcon('💥', 36) }).addTo(map);
-        setTimeout(() => {
-          boom.setIcon(mkIcon('💨', 28));
-          setTimeout(() => boom.remove(), 3000);
-        }, 600);
+  function clearTempMarkers() { tempMarkers.forEach(m => m.remove()); tempMarkers.length = 0; }
 
-        setMode('ready');
-        document.getElementById('launchBtn').disabled = false;
-        updateRepointBtns();
-        savePPOData(traj, r, ST.launchPt, bear, true);
+  function onFlightEnd() {
+    clearTempMarkers();
+    if (isShortFall) {
+      const boom = L.marker(actualLandPt, { icon: mkIcon('💥', 36) }).addTo(map);
+      setTimeout(() => { boom.setIcon(mkIcon('💨', 28)); setTimeout(() => boom.remove(), 3000); }, 600);
 
-        // Рандомне дипломатичне застереження
-        const warnings = [
-          '⚠️ Дипломатична нота надіслана. Країна-ціль вимагає пояснень.',
-          '🔴 Країна-ціль оголошує підвищену бойову готовність!',
-          '📡 Зафіксовано пуск. Розвідка країни-цілі аналізує ситуацію.',
-          '⚡ Термінове засідання Ради Безпеки ООН скликано.',
-          '🗞️ ЗМІ країни-цілі: "Невдала атака відбита!"',
-        ];
-        const warn = warnings[Math.floor(Math.random() * warnings.length)];
-        document.getElementById('infoBox').innerHTML = `
-          💥 <b>Не долетіла!</b><br>
-          Впала через <b>${(actualLandDist/1000).toFixed(1)} км</b><br>
-          Не вистачило <b>${((dist - actualLandDist)/1000).toFixed(1)} км</b><br>
-          Час польоту: <b>${formatTime(traj[traj.length-1].t)}</b><br>
-          <br><span style="color:#ff9800">${warn}</span><br>
-          <small style="color:#42a5f5;cursor:pointer" onclick="openPPO()">🛡️ Аналіз ППО →</small>
-        `;
-        // Показуємо пошкодження там де впала (як звичайне влучання)
-        setTimeout(() => showImpact(r, actualLandDist / 1000, true), 1000);
-      } else {
-        // CEP: розраховуємо реальну точку влучання
-        const sigma = r.cep / 1.1774;
-        const u1 = Math.max(Math.random(), 1e-10);
-        const missAngle = Math.random() * 2 * Math.PI;
-        const missDistM = sigma * Math.sqrt(-2 * Math.log(u1));
-        const [impLat, impLng] = destPoint(ST.targetPt.lat, ST.targetPt.lng, missDistM, missAngle);
-        const actualImpactPt = L.latLng(impLat, impLng);
+      setMode('ready');
+      document.getElementById('launchBtn').disabled = false;
+      updateRepointBtns();
+      savePPOData(traj, r, ST.launchPt, bear, true);
 
-        const boom = L.marker(actualImpactPt, { icon: mkIcon('💥', 36) }).addTo(map);
-        setTimeout(() => {
-          boom.setIcon(mkIcon('🔥', 28));
-          setTimeout(() => boom.remove(), 3000);
-        }, 500);
+      const warnings = [
+        '⚠️ Дипломатична нота надіслана. Країна-ціль вимагає пояснень.',
+        '🔴 Країна-ціль оголошує підвищену бойову готовність!',
+        '📡 Зафіксовано пуск. Розвідка країни-цілі аналізує ситуацію.',
+        '⚡ Термінове засідання Ради Безпеки ООН скликано.',
+        '🗞️ ЗМІ країни-цілі: "Невдала атака відбита!"',
+      ];
+      document.getElementById('infoBox').innerHTML = `
+        💥 <b>Не долетіла!</b><br>
+        Впала через <b>${(actualLandDist/1000).toFixed(1)} км</b><br>
+        Не вистачило <b>${((dist - actualLandDist)/1000).toFixed(1)} км</b><br>
+        Час польоту: <b>${formatTime(traj[traj.length-1].t)}</b><br>
+        <br><span style="color:#ff9800">${warnings[Math.floor(Math.random()*warnings.length)]}</span><br>
+        <small style="color:#42a5f5;cursor:pointer" onclick="openPPO()">🛡️ Аналіз ППО →</small>
+      `;
+      showLaunchReport({ rocket: r, distKm: actualLandDist/1000, flightSec: traj[traj.length-1].t, maxAltKm: (traj.maxH||0)/1000, maxMach: traj.maxMach, result:'SHORTFALL', detail:`⚠️ Не вистачило ${((dist-actualLandDist)/1000).toFixed(1)} км` });
+      setTimeout(() => showImpact(r, actualLandDist / 1000, true), 1000);
+    } else {
+      const sigma    = r.cep / 1.1774;
+      const u1       = Math.max(Math.random(), 1e-10);
+      const missAngle = Math.random() * 2 * Math.PI;
+      const missDistM = sigma * Math.sqrt(-2 * Math.log(u1));
+      const [impLat, impLng] = destPoint(ST.targetPt.lat, ST.targetPt.lng, missDistM, missAngle);
+      const actualImpactPt   = L.latLng(impLat, impLng);
 
-        setMode('ready');
-        document.getElementById('launchBtn').disabled = false;
-        updateRepointBtns();
-        showImpact(r, dist / 1000);
-        savePPOData(traj, r, ST.launchPt, bear, false);
+      const boom = L.marker(actualImpactPt, { icon: mkIcon('💥', 36) }).addTo(map);
+      setTimeout(() => { boom.setIcon(mkIcon('🔥', 28)); setTimeout(() => boom.remove(), 3000); }, 500);
 
-        document.getElementById('sTime').textContent = formatTimeDetailed(traj[traj.length-1].t);
-        document.getElementById('sMach').textContent = traj.maxMach.toFixed(2);
-        document.getElementById('sCoriolis').textContent = `${Math.abs(traj.lateralDrift).toFixed(0)}м`;
-        document.getElementById('sGravWGS').textContent = `${(traj.gWGS84||gravityWGS84(ST.launchPt.lat)).toFixed(4)}м/с²`;
-        document.getElementById('sEotvos').textContent = traj.eotvosDy != null
-          ? `${traj.eotvosDy >= 0 ? '+' : ''}${traj.eotvosDy.toFixed(0)}м`
-          : '—';
+      setMode('ready');
+      document.getElementById('launchBtn').disabled = false;
+      updateRepointBtns();
+      showImpact(r, dist / 1000);
+      savePPOData(traj, r, ST.launchPt, bear, false);
+      const hitDetail = missDistM < 30 ? '🎯 ПРЯМЕ ВЛУЧАННЯ!' : `💥 Відхилення від цілі: ${missDistM.toFixed(0)} м`;
+      showLaunchReport({ rocket: r, distKm: dist/1000, flightSec: traj[traj.length-1].t, maxAltKm: (traj.maxH||0)/1000, maxMach: traj.maxMach, result:'HIT', detail: hitDetail });
 
-        const spaceNote = traj.reachedSpace ? '🛸 Вийшла в космос!<br>' : '';
-        const hitNote = missDistM < 30
-          ? '🎯 ПРЯМЕ ВЛУЧАННЯ!'
-          : `💥 Відхилення: ${missDistM.toFixed(0)} м`;
-        document.getElementById('infoBox').innerHTML = `
-          💥 <b>Влучання!</b><br>
-          ${hitNote}<br>
-          Дальність: <b>${(dist/1000).toFixed(1)} км</b><br>
-          Час польоту: <b>${formatTimeDetailed(traj[traj.length-1].t)}</b> (апогей: ${formatTimeDetailed(traj.tApogee||0)})<br>
-          ${spaceNote}Мах: <b>${traj.maxMach.toFixed(1)}</b> | Коріоліс: <b>${Math.abs(traj.lateralDrift).toFixed(0)} м</b><br>
-          <br>Клікни нову ціль або скинь (ПКМ)<br>
-          <small style="color:#42a5f5;cursor:pointer" onclick="openPPO()">🛡️ Аналіз ППО →</small>
-        `;
-      }
+      document.getElementById('sTime').textContent = formatTimeDetailed(traj[traj.length-1].t);
+      document.getElementById('sMach').textContent = traj.maxMach.toFixed(2);
+      document.getElementById('sCoriolis').textContent = `${Math.abs(traj.lateralDrift).toFixed(0)}м`;
+      document.getElementById('sGravWGS').textContent = `${(traj.gWGS84||gravityWGS84(ST.launchPt.lat)).toFixed(4)}м/с²`;
+      document.getElementById('sEotvos').textContent = traj.eotvosDy != null
+        ? `${traj.eotvosDy >= 0 ? '+' : ''}${traj.eotvosDy.toFixed(0)}м`
+        : '—';
+
+      const spaceNote = traj.reachedSpace ? '🛸 Вийшла в космос!<br>' : '';
+      const hitNote   = missDistM < 30 ? '🎯 ПРЯМЕ ВЛУЧАННЯ!' : `💥 Відхилення: ${missDistM.toFixed(0)} м`;
+      document.getElementById('infoBox').innerHTML = `
+        💥 <b>Влучання!</b><br>
+        ${hitNote}<br>
+        Дальність: <b>${(dist/1000).toFixed(1)} км</b><br>
+        Час польоту: <b>${formatTimeDetailed(traj[traj.length-1].t)}</b> (апогей: ${formatTimeDetailed(traj.tApogee||0)})<br>
+        ${spaceNote}Мах: <b>${traj.maxMach.toFixed(1)}</b> | Коріоліс: <b>${Math.abs(traj.lateralDrift).toFixed(0)} м</b><br>
+        <br>Клікни нову ціль або скинь (ПКМ)<br>
+        <small style="color:#42a5f5;cursor:pointer" onclick="openPPO()">🛡️ Аналіз ППО →</small>
+      `;
     }
   }
 
@@ -3073,6 +3171,42 @@ function hideCalcDetail(e) {
 }
 
 // ============================================================
+// ЗВІТ ЗАПУСКУ
+// ============================================================
+function showLaunchReport({ rocket, distKm, flightSec, maxAltKm, maxMach, result, detail }) {
+  const el = document.getElementById('launchReportContent');
+  const panel = document.getElementById('launchReport');
+  if (!el || !panel) return;
+
+  const resultColors = { HIT:'#27ae60', SHORTFALL:'#ff9800', INTERCEPTED:'#e74c3c' };
+  const resultLabels = { HIT:'✅ ВЛУЧАННЯ', SHORTFALL:'⚠️ НЕ ДОЛЕТІЛА', INTERCEPTED:'🛡️ ПЕРЕХОПЛЕНО' };
+  const col = resultColors[result] || '#4dd0e1';
+  const label = resultLabels[result] || result;
+
+  const mm = Math.floor(flightSec / 60);
+  const ss = Math.floor(flightSec % 60);
+  const timeStr = mm > 0 ? `${mm}хв ${ss}с` : `${ss}с`;
+
+  el.innerHTML = `
+    <div style="text-align:center;margin-bottom:8px;padding:6px;background:rgba(255,255,255,0.05);border-radius:6px">
+      <span style="font-size:1.4rem">${rocket.icon}</span>
+      <div style="color:#c8d8f0;font-size:0.7rem;margin-top:2px">${rocket.name}</div>
+    </div>
+    <div style="text-align:center;margin-bottom:10px;padding:5px 8px;border-radius:6px;background:rgba(0,0,0,0.3);border:1px solid ${col}">
+      <span style="color:${col};font-size:0.8rem;font-weight:bold;letter-spacing:1px">${label}</span>
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:0.68rem">
+      <tr><td style="color:#7ab">📍 Дальність</td><td style="text-align:right;color:#eee">${distKm.toFixed(1)} км</td></tr>
+      <tr><td style="color:#7ab">⏱ Час польоту</td><td style="text-align:right;color:#eee">${timeStr}</td></tr>
+      <tr><td style="color:#7ab">🏔 Макс. висота</td><td style="text-align:right;color:#eee">${maxAltKm.toFixed(0)} км</td></tr>
+      <tr><td style="color:#7ab">💨 Макс. Мах</td><td style="text-align:right;color:#eee">${maxMach.toFixed(1)}</td></tr>
+      ${detail ? `<tr><td colspan="2" style="padding-top:6px;color:#ff9800;font-size:0.66rem">${detail}</td></tr>` : ''}
+    </table>
+  `;
+  panel.style.display = 'block';
+}
+
+// ============================================================
 // НАСЛІДКИ УДАРУ
 // ============================================================
 function showImpact(rocket, distKm, isShortFall = false) {
@@ -3151,7 +3285,15 @@ function showImpact(rocket, distKm, isShortFall = false) {
   `;
 
   setTimeout(() => {
-    document.getElementById('impactOverlay').classList.add('show');
+    const overlay = document.getElementById('impactOverlay');
+    const report  = document.getElementById('launchReport');
+    // Якщо звіт відкритий — розміщуємо ліворуч від нього
+    if (report && report.style.display !== 'none') {
+      overlay.style.right = (260 + 16 + 16) + 'px'; // 260 ширина звіту + відступи
+    } else {
+      overlay.style.right = '16px';
+    }
+    overlay.classList.add('show');
   }, 1200);
 }
 
@@ -3172,9 +3314,12 @@ function repointLaunch() {
 
 function repointTarget() {
   if (ST.animId) { cancelAnimationFrame(ST.animId); ST.animId = null; }
+  if (ST.missileMarker) { ST.missileMarker.remove(); ST.missileMarker = null; }
+  if (ST._tempMarkers) { ST._tempMarkers.forEach(m => m.remove()); ST._tempMarkers = []; }
   if (ST.targetMarker) { ST.targetMarker.remove(); ST.targetMarker = null; }
   if (ST.trajLine) { ST.trajLine.remove(); ST.trajLine = null; }
   if (ST.groundLine) { ST.groundLine.remove(); ST.groundLine = null; }
+  hideFlightControls();
   ST.targetPt = null;
   setMode('target');
   document.getElementById('launchBtn').disabled = true;
