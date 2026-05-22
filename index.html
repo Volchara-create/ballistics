@@ -932,6 +932,7 @@
     <div class="opt-btns">
       <button class="opt-btn-confirm" id="optConfirm" onclick="applyOptimal()">✅ ПІДТВЕРДИТИ</button>
       <button class="opt-btn-manual" onclick="closeOptimal()">✏️ ВРУЧНУ</button>
+      <button class="opt-btn-manual" onclick="closeOptimalAndRepoint()" id="optRepointBtn" style="border-color:#4dd0e1;color:#4dd0e1">🎯 НОВА ЦІЛЬ</button>
     </div>
   </div>
 </div>
@@ -969,9 +970,9 @@ const ROCKETS = [
     thrust: 52000,              // Н: тяга двигуна (розігнати 66 кг до ~690 м/с за ~0.8 с)
     burnTime: 0.8,              // с: короткий імпульс твердого палива
     diameter: 0.122, Cd: 0.35,
-    maxRangeKm: 20, v0: 690, color: '#ff9800', icon: '💥',
+    maxRangeKm: 40, v0: 690, color: '#ff9800', icon: '💥',
     cep: 150,
-    desc: 'Радянська РСЗВ. Калібр 122 мм. Паливо: твердотільний ракетний двигун, горить 0.8 с. Після вигорання — чистий балістичний політ. КВО: ~150м'
+    desc: 'Радянська РСЗВ. Калібр 122 мм. Ракети 9М521/9М522: до 40 км. КВО: ~150 м — неточна!'
   },
   {
     id: 'himars',
@@ -1020,8 +1021,8 @@ const ROCKETS = [
     burnTime: 12,
     diameter: 0.5, Cd: 0.10,
     maxRangeKm: 2000, v0: 3400, color: '#ab47bc', icon: '💀',
-    cep: 3,
-    desc: 'Гіперзвукова, скидається з МіГ-31К. Двигун горить 12 с → Mach 10+. Досягає висоти ~50 км. Дальність 2000 км. КВО: ~3м'
+    cep: 15,
+    desc: 'Гіперзвукова, скидається з МіГ-31К. Двигун горить 12 с → Mach 10+. Висота ~50 км. Дальність 2000 км. КВО: ~15 м (реалістична оцінка).'
   },
   {
     id: 'tomahawk',
@@ -1033,8 +1034,8 @@ const ROCKETS = [
     burnTime: 9000,  // с: паливо на ~2.5 години польоту (дозвукова крилата)
     diameter: 0.527, Cd: 0.06,
     maxRangeKm: 2500, v0: 245, color: '#26a69a', icon: '🦅',
-    cep: 10,
-    desc: 'Дозвукова крилата ракета. Турбовентилятор 3100 Н (як малий авто) — тяга мала, але постійна. Летить на 50–100 м висоти. КВО: ~10м'
+    cep: 5,
+    desc: 'Дозвукова крилата ракета. Турбовентилятор 3100 Н, летить на 50–100 м висоти. КВО: ~5 м (DSMAC + GPS, Block IV).'
   }
 ];
 
@@ -1046,10 +1047,10 @@ const AIR_DEFENSE = [
     id: 'patriot',
     name: 'Patriot PAC-3',
     country: '🇺🇸 США/НАТО',
-    maxRangeKm: 40,
+    maxRangeKm: 35,
     maxAltKm: 24,
     minAltKm: 0.06,
-    shots: 2,          // кількість ракет на один залп
+    shots: 2,
     basePkill: 0.85,
     maxEffMach: 5,
     color: '#4fc3f7',
@@ -2314,6 +2315,7 @@ function doLaunch() {
   let missileMarker = L.marker(ST.launchPt, { icon: mkIcon(r.icon, 20) }).addTo(map);
 
   setMode('flying');
+  ST._flyStart = Date.now();
   document.getElementById('launchBtn').disabled = true;
   document.getElementById('skipBtn').style.display = 'block';
 
@@ -2392,16 +2394,56 @@ function doLaunch() {
               requestAnimationFrame(animateInterceptor);
             } else {
               intMarker.remove();
-              // Серія вибухів при перехопленні
               ST.trajLine.setLatLngs(latlngs.slice(0, i));
               const boomPt = endPos;
-              const boom1 = L.marker(boomPt, { icon: L.divIcon({ html:'<div style="font-size:36px">💥</div>', className:'', iconSize:[36,36], iconAnchor:[18,18] }) }).addTo(map);
+
+              // === АНІМАЦІЯ ЗБИТТЯ ===
+              // 1. Спалах — великий вибух
+              const bFlash = L.marker(boomPt, { icon: L.divIcon({
+                html: '<div style="font-size:52px;filter:drop-shadow(0 0 12px #ff6600)">💥</div>',
+                className:'', iconSize:[52,52], iconAnchor:[26,26]
+              })}).addTo(map);
+
+              // 2. Ударна хвиля — коло що розширюється через CSS
+              const waveDiv = document.createElement('div');
+              waveDiv.style.cssText = `
+                position:absolute; border-radius:50%;
+                border: 3px solid rgba(255,150,0,0.9);
+                width:0; height:0;
+                transform: translate(-50%,-50%);
+                pointer-events:none; z-index:9999;
+                transition: width 0.8s ease-out, height 0.8s ease-out, opacity 0.8s ease-out;
+              `;
+              // Використовуємо Leaflet overlay для wave
+              const wavePt = map.latLngToLayerPoint(boomPt);
+              const mapPane = map.getPanes().overlayPane;
+              waveDiv.style.left = wavePt.x + 'px';
+              waveDiv.style.top  = wavePt.y + 'px';
+              mapPane.appendChild(waveDiv);
+              requestAnimationFrame(() => {
+                waveDiv.style.width  = '120px';
+                waveDiv.style.height = '120px';
+                waveDiv.style.opacity = '0';
+              });
+              setTimeout(() => waveDiv.remove(), 900);
+
+              // 3. Дрібні уламки навколо
+              const offsets = [[-0.02,0.025],[0.02,-0.02],[0,-0.03],[0.03,0.01],[-0.01,0.03]];
+              offsets.forEach((off, idx) => {
+                setTimeout(() => {
+                  const frag = L.marker([boomPt.lat+off[0], boomPt.lng+off[1]], { icon: L.divIcon({
+                    html: '<div style="font-size:14px">✦</div>',
+                    className:'', iconSize:[14,14], iconAnchor:[7,7]
+                  })}).addTo(map);
+                  setTimeout(() => frag.remove(), 800);
+                }, idx * 80);
+              });
+
+              // 4. Хмара диму
               setTimeout(() => {
-                const boom2 = L.marker([boomPt.lat + 0.01, boomPt.lng + 0.01], { icon: L.divIcon({ html:'<div style="font-size:20px">💫</div>', className:'', iconSize:[20,20], iconAnchor:[10,10] }) }).addTo(map);
-                setTimeout(() => boom2.remove(), 1500);
-              }, 200);
-              setTimeout(() => { boom1.setIcon(L.divIcon({ html:'<div style="font-size:28px">💨</div>', className:'', iconSize:[28,28], iconAnchor:[14,14] })); }, 500);
-              setTimeout(() => boom1.remove(), 2500);
+                bFlash.setIcon(L.divIcon({ html:'<div style="font-size:32px;opacity:0.7">💨</div>', className:'', iconSize:[32,32], iconAnchor:[16,16] }));
+              }, 600);
+              setTimeout(() => bFlash.remove(), 3000);
 
               document.getElementById('skipBtn').style.display = 'none';
               setMode('ready');
@@ -2464,6 +2506,8 @@ function doLaunch() {
           <br><span style="color:#ff9800">${warn}</span><br>
           <small style="color:#42a5f5;cursor:pointer" onclick="openPPO()">🛡️ Аналіз ППО →</small>
         `;
+        // Показуємо пошкодження там де впала (як звичайне влучання)
+        setTimeout(() => showImpact(r, actualLandDist / 1000, true), 1000);
       } else {
         // CEP: розраховуємо реальну точку влучання
         const sigma = r.cep / 1.1774;
@@ -2628,6 +2672,8 @@ function showOptimalModal() {
     selectedSolutionId = null;
     document.getElementById('optConfirm').textContent = '✅ ПІДТВЕРДИТИ';
     document.getElementById('optConfirm').disabled = true;
+    document.getElementById('optRepointBtn').textContent = '🎯 ВИБРАТИ БЛИЖЧУ ЦІЛЬ';
+    document.getElementById('optRepointBtn').style.flex = '2';
   }
 
   document.getElementById('optContent').innerHTML = html;
@@ -2674,21 +2720,28 @@ function closeOptimal() {
   document.getElementById('optOverlay').classList.remove('show');
 }
 
+function closeOptimalAndRepoint() {
+  closeOptimal();
+  repointTarget();
+}
+
 // ============================================================
 // НАСЛІДКИ УДАРУ
 // ============================================================
-function showImpact(rocket, distKm) {
-  const blastRadius = Math.round(Math.pow(rocket.mass, 0.35) * 0.4 * 10) / 10;
+function showImpact(rocket, distKm, isShortFall = false) {
+  // При недольоті ракета витратила паливо і має меншу ефективну масу БЧ
+  const effectiveMass = isShortFall ? rocket.dryMass : rocket.mass;
+  const blastRadius = Math.round(Math.pow(effectiveMass, 0.35) * 0.4 * 10) / 10;
   const blastArea = Math.round(Math.PI * blastRadius * blastRadius * 10) / 10;
   const density = 800 + Math.floor(Math.random() * 3200);
   const dead    = Math.round(blastArea * density * (0.15 + Math.random() * 0.2));
   const wounded = Math.round(dead * (1.5 + Math.random() * 1.5));
   const homeless= Math.round(blastArea * density * (0.4 + Math.random() * 0.3));
 
-  const power    = rocket.mass > 500 ? '⛔ Знищено' : rocket.mass > 100 ? '⚠️ Пошкоджено' : '✅ Без змін';
-  const water    = rocket.mass > 200 ? '⛔ Знищено' : rocket.mass > 50  ? '⚠️ Пошкоджено' : '✅ Без змін';
-  const roads    = rocket.mass > 100 ? '⛔ Заблоковано' : '⚠️ Пошкоджено';
-  const hospital = rocket.mass > 300 ? '⛔ Знищено' : '⚠️ Перевантажено';
+  const power    = effectiveMass > 500 ? '⛔ Знищено' : effectiveMass > 100 ? '⚠️ Пошкоджено' : '✅ Без змін';
+  const water    = effectiveMass > 200 ? '⛔ Знищено' : effectiveMass > 50  ? '⚠️ Пошкоджено' : '✅ Без змін';
+  const roads    = effectiveMass > 100 ? '⛔ Заблоковано' : '⚠️ Пошкоджено';
+  const hospital = effectiveMass > 300 ? '⛔ Знищено' : '⚠️ Перевантажено';
 
   const severities = [
     { min: 5000, txt: 'Катастрофічні руйнування. Район потребує евакуації та багаторічного відновлення.' },
@@ -2703,6 +2756,10 @@ function showImpact(rocket, distKm) {
   const homelessCol = homeless > 10000 ? 'red' : 'orange';
 
   document.getElementById('impactContent').innerHTML = `
+    ${isShortFall ? `<div style="background:rgba(255,152,0,0.1);border:1px solid #ff9800;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:0.72rem;color:#ff9800">
+      ⚠️ <b>Ракета не долетіла до цілі</b> — впала по дорозі.<br>
+      Пошкодження завдані у точці падіння (зменшена потужність — паливо витрачено).
+    </div>` : ''}
     <div class="impact-stat">
       <span class="impact-stat-label">🚀 Ракета</span>
       <span class="impact-stat-val">${rocket.icon} ${rocket.name}</span>
@@ -2905,6 +2962,61 @@ function makeDraggable(modalEl) {
   const el = document.querySelector('.' + cls);
   if (el) makeDraggable(el);
 });
+
+// ============================================================
+// КНОПКА FULLSCREEN — з'являється через 5 сек бездіяльності
+// ============================================================
+const fsBtn = document.createElement('button');
+fsBtn.textContent = '⛶ НА ВЕСЬ ЕКРАН';
+fsBtn.style.cssText = `
+  position:fixed; bottom:20px; right:20px; z-index:9990;
+  display:none; padding:10px 16px;
+  background:rgba(8,13,26,0.92); border:1px solid #4dd0e1;
+  border-radius:8px; color:#4dd0e1; font-size:0.75rem;
+  font-family:'Courier New',monospace; cursor:pointer; letter-spacing:1px;
+  box-shadow: 0 0 12px rgba(77,208,225,0.2);
+`;
+fsBtn.onclick = () => {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch(() => {});
+    fsBtn.textContent = '✕ ВИЙТИ З ПОВНОГО ЕКРАНУ';
+  } else {
+    document.exitFullscreen();
+    fsBtn.textContent = '⛶ НА ВЕСЬ ЕКРАН';
+  }
+};
+document.addEventListener('fullscreenchange', () => {
+  if (!document.fullscreenElement) fsBtn.textContent = '⛶ НА ВЕСЬ ЕКРАН';
+});
+document.body.appendChild(fsBtn);
+
+let _idleTimer = null;
+function resetIdleTimer() {
+  clearTimeout(_idleTimer);
+  fsBtn.style.display = 'none';
+  _idleTimer = setTimeout(() => { fsBtn.style.display = 'block'; }, 5000);
+}
+['click','mousemove','keydown','touchstart'].forEach(ev =>
+  document.addEventListener(ev, resetIdleTimer, { passive: true })
+);
+resetIdleTimer();
+
+// ============================================================
+// WATCHDOG — перезапуск якщо завис у стані 'flying' понад 3 хв
+// ============================================================
+setInterval(() => {
+  if (ST.mode === 'flying') {
+    const now = Date.now();
+    if (!ST._flyStart) { ST._flyStart = now; return; }
+    if (now - ST._flyStart > 180000) { // 3 хвилини
+      console.warn('Watchdog: перезапуск через зависання');
+      resetAll();
+      ST._flyStart = null;
+    }
+  } else {
+    ST._flyStart = null;
+  }
+}, 10000);
 </script>
 </body>
 </html>
