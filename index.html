@@ -605,6 +605,57 @@
     .tut-example b { color: #2ecc71; }
 
     /* ============================================================
+       ДЕТАЛЬНІ РОЗРАХУНКИ
+    ============================================================ */
+    .calc-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.72); z-index: 9200;
+      align-items: center; justify-content: center;
+    }
+    .calc-overlay.show { display: flex; }
+    .calc-modal {
+      background: #0a1020; border: 1px solid #4dd0e1;
+      border-radius: 12px; width: 560px; max-width: 97vw;
+      max-height: 90vh; overflow-y: auto;
+      padding: 22px 24px; font-family: 'Courier New', monospace;
+      font-size: 0.76rem; color: #c8d8f0;
+    }
+    .calc-modal h3 { color: #4dd0e1; letter-spacing: 2px; font-size: 0.88rem; margin-bottom: 16px; text-align: center; }
+    .calc-block {
+      background: rgba(10,20,40,0.7); border: 1px solid #1a3050;
+      border-radius: 8px; padding: 12px 14px; margin-bottom: 10px;
+    }
+    .calc-block-title {
+      color: #4dd0e1; font-size: 0.7rem; font-weight: bold;
+      letter-spacing: 1px; margin-bottom: 8px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .calc-formula {
+      background: rgba(0,0,0,0.4); border-left: 3px solid #4dd0e1;
+      padding: 6px 10px; border-radius: 0 4px 4px 0;
+      font-size: 0.68rem; color: #90c8e0; margin: 6px 0;
+      font-style: italic; line-height: 1.7;
+    }
+    .calc-row {
+      display: flex; justify-content: space-between; align-items: baseline;
+      padding: 4px 0; border-bottom: 1px solid rgba(26,48,80,0.5); font-size: 0.7rem;
+    }
+    .calc-row:last-child { border-bottom: none; }
+    .calc-row-label { color: #8090a8; }
+    .calc-row-val { color: #4dd0e1; font-weight: bold; }
+    .calc-row-formula { color: #556677; font-size: 0.62rem; font-style: italic; }
+    .calc-explain { color: #6080a0; font-size: 0.68rem; line-height: 1.7; margin-top: 6px; }
+    .calc-highlight { color: #27ae60; }
+    .calc-warn { color: #ff9800; }
+    .calc-close {
+      width: 100%; margin-top: 12px; padding: 9px;
+      background: rgba(10,16,32,0.8); border: 1px solid #4dd0e1;
+      border-radius: 8px; color: #4dd0e1; cursor: pointer;
+      font-family: 'Courier New', monospace; font-size: 0.75rem; letter-spacing: 1px;
+    }
+    .calc-close:hover { background: rgba(77,208,225,0.15); }
+
+    /* ============================================================
        ППО АНАЛІЗ
     ============================================================ */
     .ppo-overlay {
@@ -880,7 +931,10 @@
 
       <!-- СТАТИСТИКА -->
       <div class="section">
-        <div class="section-title">Дані польоту</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div class="section-title" style="margin-bottom:0">Дані польоту</div>
+          <button id="calcDetailBtn" onclick="showCalcDetail()" style="padding:2px 10px;background:rgba(77,208,225,0.08);border:1px solid #4dd0e1;border-radius:4px;color:#4dd0e1;font-size:0.58rem;font-family:'Courier New',monospace;cursor:pointer;letter-spacing:1px" title="Як розраховуються ці числа">🔍 ДЕТАЛЬНО</button>
+        </div>
         <div class="stat-grid">
           <div class="stat"><div class="stat-val" id="sRange">—</div><div class="stat-lbl">Дальність</div></div>
           <div class="stat"><div class="stat-val" id="sHeight">—</div><div class="stat-lbl">Макс. висота</div></div>
@@ -913,7 +967,6 @@
         <button id="toggleRangesBtn" onclick="toggleDefenseRanges()" style="flex:1;padding:6px 4px;background:rgba(10,16,32,0.6);border:1px solid #1a3050;border-radius:6px;color:#6080a0;font-size:0.6rem;font-family:'Courier New',monospace;cursor:pointer;letter-spacing:1px" disabled>🔵 ЗОНИ</button>
       </div>
       <button id="launchBtn" disabled>🚀 ПУСК</button>
-      <button id="skipBtn" style="display:none;width:100%;padding:8px;margin-top:6px;background:rgba(10,16,32,0.6);border:1px solid #ff9800;border-radius:6px;color:#ff9800;font-size:0.65rem;font-family:'Courier New',monospace;cursor:pointer;letter-spacing:1px" onclick="skipAnimation()">⏩ ПРОПУСТИТИ АНІМАЦІЮ</button>
       <div class="repoint-row">
         <button class="repoint-btn" id="repointLaunch" disabled onclick="repointLaunch()">🔴 Змінити старт</button>
         <button class="repoint-btn" id="repointTarget" disabled onclick="repointTarget()">🎯 Змінити ціль</button>
@@ -923,6 +976,27 @@
 
   <div id="map"></div>
 </div><!-- /main -->
+
+<!-- FLOATING КНОПКИ ПІД ЧАС ПОЛЬОТУ -->
+<div id="flightControls" style="
+  display:none; position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+  z-index:8000; display:none; gap:10px; align-items:center;
+">
+  <button id="speedBtn" onclick="cycleSpeed()" style="
+    padding:10px 20px; background:rgba(8,13,26,0.92);
+    border:1.5px solid #ff9800; border-radius:8px;
+    color:#ff9800; font-size:0.8rem; font-family:'Courier New',monospace;
+    cursor:pointer; letter-spacing:1px;
+    box-shadow:0 0 14px rgba(255,152,0,0.3);
+  ">⏩ 1× (натисни)</button>
+  <button onclick="skipAnimation()" style="
+    padding:10px 16px; background:rgba(8,13,26,0.92);
+    border:1.5px solid #e74c3c; border-radius:8px;
+    color:#e74c3c; font-size:0.8rem; font-family:'Courier New',monospace;
+    cursor:pointer; letter-spacing:1px;
+    box-shadow:0 0 14px rgba(231,76,60,0.3);
+  ">⏭ ПРОПУСТИТИ</button>
+</div>
 
 <!-- ВІКНО ОПТИМАЛЬНИХ ПАРАМЕТРІВ -->
 <div class="opt-overlay" id="optOverlay">
@@ -943,6 +1017,15 @@
     <h3>💥 НАСЛІДКИ УДАРУ</h3>
     <div id="impactContent"></div>
     <button class="impact-close" onclick="document.getElementById('impactOverlay').classList.remove('show')">✕ ЗАКРИТИ</button>
+  </div>
+</div>
+
+<!-- ДЕТАЛЬНІ РОЗРАХУНКИ -->
+<div class="calc-overlay" id="calcOverlay" onclick="hideCalcDetail(event)">
+  <div class="calc-modal">
+    <h3>🔬 ЯК РОЗРАХОВУЮТЬСЯ ДАНІ ПОЛЬОТУ</h3>
+    <div id="calcContent"></div>
+    <button class="calc-close" onclick="hideCalcDetail()">✕ ЗАКРИТИ</button>
   </div>
 </div>
 
@@ -2263,8 +2346,34 @@ function updatePreview() {
 // ПУСК
 // ============================================================
 let animSkipped = false;
+let animSpeedMult = 1; // 1× / 5× / 20×
+
 function skipAnimation() {
   animSkipped = true;
+}
+
+function cycleSpeed() {
+  const levels = [1, 5, 20];
+  const idx = levels.indexOf(animSpeedMult);
+  animSpeedMult = levels[(idx + 1) % levels.length];
+  const btn = document.getElementById('speedBtn');
+  if (animSpeedMult === 1)  { btn.textContent = '⏩ 1× (натисни)';  btn.style.borderColor='#ff9800'; btn.style.color='#ff9800'; }
+  if (animSpeedMult === 5)  { btn.textContent = '⏩ 5× ШВИДКО';     btn.style.borderColor='#4dd0e1'; btn.style.color='#4dd0e1'; }
+  if (animSpeedMult === 20) { btn.textContent = '⏩ 20× ДУЖЕ ШВИДКО'; btn.style.borderColor='#27ae60'; btn.style.color='#27ae60'; }
+}
+
+function showFlightControls() {
+  animSpeedMult = 1;
+  const fc = document.getElementById('flightControls');
+  fc.style.display = 'flex';
+  document.getElementById('speedBtn').textContent = '⏩ 1× (натисни)';
+  document.getElementById('speedBtn').style.borderColor = '#ff9800';
+  document.getElementById('speedBtn').style.color = '#ff9800';
+}
+
+function hideFlightControls() {
+  document.getElementById('flightControls').style.display = 'none';
+  animSpeedMult = 1;
 }
 
 document.getElementById('launchBtn').onclick = doLaunch;
@@ -2317,7 +2426,7 @@ function doLaunch() {
   setMode('flying');
   ST._flyStart = Date.now();
   document.getElementById('launchBtn').disabled = true;
-  document.getElementById('skipBtn').style.display = 'block';
+  showFlightControls();
 
   // Реалістична тривалість анімації:
   // Короткий політ (30с) → ~5с анімації, довгий (600с) → ~15с анімації
@@ -2336,14 +2445,15 @@ function doLaunch() {
   function step() {
     if (i < latlngs.length) {
       if (animSkipped) { i = latlngs.length; animSkipped = false; }
-      const pts = latlngs.slice(0, Math.min(i + chunkSize, latlngs.length));
+      const curChunk = chunkSize * animSpeedMult;
+      const pts = latlngs.slice(0, Math.min(i + curChunk, latlngs.length));
       ST.trajLine.setLatLngs(pts);
       missileMarker.setLatLng(pts[pts.length - 1]);
       // Оновлення таймера польоту під час анімації
       const simFraction = Math.min(i / latlngs.length, 1);
       const simTimeSec  = simFraction * flightTimeSec;
       if (timeEl) timeEl.textContent = formatTime(simTimeSec) + ' ⏱';
-      i += chunkSize;
+      i += curChunk;
 
       // Check live interception by defense sites
       if (!intercepted && defenseSitesVisible) {
@@ -2445,7 +2555,7 @@ function doLaunch() {
               }, 600);
               setTimeout(() => bFlash.remove(), 3000);
 
-              document.getElementById('skipBtn').style.display = 'none';
+              hideFlightControls();
               setMode('ready');
               document.getElementById('launchBtn').disabled = false;
               updateRepointBtns();
@@ -2474,7 +2584,7 @@ function doLaunch() {
       ST.trajLine.setLatLngs(latlngs);
       missileMarker.remove();
 
-      document.getElementById('skipBtn').style.display = 'none';
+      hideFlightControls();
 
       if (isShortFall) {
         // Вибух де впала, а не де ціль
@@ -2746,6 +2856,220 @@ function closeOptimal() {
 function closeOptimalAndRepoint() {
   closeOptimal();
   repointTarget();
+}
+
+// ============================================================
+// ДЕТАЛЬНІ РОЗРАХУНКИ — пояснення кожного числа
+// ============================================================
+function showCalcDetail() {
+  // Збираємо поточні значення з UI
+  const rangeEl   = document.getElementById('sRange').textContent;
+  const heightEl  = document.getElementById('sHeight').textContent;
+  const timeEl    = document.getElementById('sTime').textContent;
+  const angleEl   = document.getElementById('sAngle').textContent;
+  const machEl    = document.getElementById('sMach').textContent;
+  const coriolisEl= document.getElementById('sCoriolis').textContent;
+  const gravEl    = document.getElementById('sGravWGS').textContent;
+  const eotvosEl  = document.getElementById('sEotvos').textContent;
+
+  const hasData = rangeEl !== '—';
+  const r = ST.currentRocket;
+  const grav = parseFloat(document.getElementById('gravSlider').value) || 9.81;
+  const drag = parseFloat(document.getElementById('dragSlider').value) || 1.0;
+  const mass = parseFloat(document.getElementById('massSlider').value) || 1.0;
+
+  const noDataMsg = hasData ? '' : `
+    <div style="background:rgba(255,152,0,0.1);border:1px solid #ff9800;border-radius:8px;padding:10px 12px;margin-bottom:12px;color:#ff9800;font-size:0.72rem">
+      ⚠️ Спочатку постав точки запуску і цілі — тоді тут з'являться реальні числа з розрахунку.
+    </div>`;
+
+  const html = `
+    ${noDataMsg}
+
+    <!-- ДАЛЬНІСТЬ -->
+    <div class="calc-block">
+      <div class="calc-block-title">📏 Дальність — <span style="color:#4dd0e1">${rangeEl}</span></div>
+      <div class="calc-explain">
+        Відстань між точкою запуску і ціллю рахується за <b>формулою гаверсинусів</b> — вона враховує кривизну Землі.
+        Це точніше ніж звичайна геометрія, особливо на великих відстанях.
+      </div>
+      <div class="calc-formula">
+        d = 2R · arcsin(√(sin²(Δlat/2) + cos(lat₁)·cos(lat₂)·sin²(Δlng/2)))<br>
+        де R = 6 371 000 м — радіус Землі
+      </div>
+      <div class="calc-explain">
+        💡 Наприклад: Київ → Харків = ~410 км. Різниця з плоскою геометрією — до 2 км на такій відстані.
+      </div>
+    </div>
+
+    <!-- КУТ ПУСКУ -->
+    <div class="calc-block">
+      <div class="calc-block-title">📐 Кут пуску — <span style="color:#4dd0e1">${angleEl}</span></div>
+      <div class="calc-explain">
+        Симулятор підбирає оптимальний кут бінарним пошуком: пробує кути від 2° до 85° і знаходить такий,
+        щоб ракета приземлилась рівно на відстані цілі.
+      </div>
+      <div class="calc-formula">
+        Кут 45° = максимальна дальність (у вакуумі)<br>
+        З опором повітря: оптимум зсувається до 30–40°<br>
+        Для малих відстаней: два рішення — "малий кут" і "навісний"
+      </div>
+      <div class="calc-explain">
+        💡 Скад летить під ~35°, Іскандер під ~40°, Град під ~45° на максимум.
+      </div>
+    </div>
+
+    <!-- ВИСОТА -->
+    <div class="calc-block">
+      <div class="calc-block-title">↑ Макс. висота — <span style="color:#4dd0e1">${heightEl}</span></div>
+      <div class="calc-explain">
+        Під час симуляції методом <b>Рунге-Кутта 4-го порядку</b> (RK4) рахується позиція кожні
+        ${r ? (r.burnTime > 1 ? '0.04 с (під час тяги) і 0.3 с (балістика)' : '0.04 с') : '...'}.
+        Найвища точка = апогей.
+      </div>
+      <div class="calc-formula">
+        Висота апогею ≈ v₀²·sin²(θ) / (2g)<br>
+        де v₀ — початкова швидкість, θ — кут пуску, g — гравітація
+      </div>
+      ${hasData && parseFloat(heightEl) > 100 ? '<div class="calc-warn">⚠️ Висота > 100 км — ракета виходить за лінію Кармана (межу космосу)!</div>' : ''}
+    </div>
+
+    <!-- ЧАС ПОЛЬОТУ -->
+    <div class="calc-block">
+      <div class="calc-block-title">⏱️ Час польоту — <span style="color:#4dd0e1">${timeEl}</span></div>
+      <div class="calc-explain">
+        Час = сума всіх кроків інтегрування від старту до приземлення.<br>
+        Складається з двох фаз:
+      </div>
+      <div class="calc-row">
+        <span class="calc-row-label">🔥 Фаза тяги (двигун горить)</span>
+        <span class="calc-row-val">${r ? r.burnTime + ' с' : '—'}</span>
+      </div>
+      <div class="calc-row">
+        <span class="calc-row-label">🪂 Балістична фаза (без двигуна)</span>
+        <span class="calc-row-val">${hasData && r ? 'решта часу' : '—'}</span>
+      </div>
+      <div class="calc-explain">
+        💡 Томагавк летить ~2–6 годин (дозвуковий, 245 м/с). Іскандер — ~8 хв на 500 км. Град — ~40 с на 20 км.
+      </div>
+    </div>
+
+    <!-- МАХ -->
+    <div class="calc-block">
+      <div class="calc-block-title">⚡ Число Маха — <span style="color:#4dd0e1">${machEl}</span></div>
+      <div class="calc-explain">
+        Мах = швидкість ракети / швидкість звуку на поточній висоті.<br>
+        Швидкість звуку залежить від температури повітря (ISA-атмосфера, 7 шарів):
+      </div>
+      <div class="calc-formula">
+        c = √(γ·R·T), де γ=1.4, R=287 Дж/(кг·К)<br>
+        На рівні моря (288 K): c ≈ 340 м/с<br>
+        На висоті 11 км (217 K): c ≈ 295 м/с — тому Мах вищий!
+      </div>
+      <div class="calc-explain">
+        💡 При Мах &gt; 1 виникає хвильовий опір — Cd ракети зростає до 1.5–2×. При Мах &gt; 5 — гіперзвук.
+      </div>
+    </div>
+
+    <!-- ГРАВІТАЦІЯ WGS84 -->
+    <div class="calc-block">
+      <div class="calc-block-title">🌍 Гравітація WGS84 — <span style="color:#4dd0e1">${gravEl}</span></div>
+      <div class="calc-explain">
+        Земля не ідеальна куля — на екваторі g ≈ 9.780 м/с², на полюсах ≈ 9.832 м/с².
+        Симулятор рахує точне значення за широтою точки старту.
+      </div>
+      <div class="calc-formula">
+        g(φ) = 9.780327 · (1 + 0.0053024·sin²φ − 0.0000058·sin²2φ)<br>
+        де φ — географічна широта
+      </div>
+      <div class="calc-explain">
+        З висотою гравітація також зменшується: g(h) = g₀ · (R/(R+h))²<br>
+        На висоті 500 км — менше на ~14%.
+      </div>
+    </div>
+
+    <!-- КОРІОЛІС -->
+    <div class="calc-block">
+      <div class="calc-block-title">🌀 Бічний дрейф (Коріоліс) — <span style="color:#4dd0e1">${coriolisEl}</span></div>
+      <div class="calc-explain">
+        Земля обертається (Ω = 7.29×10⁻⁵ рад/с), тому ракета відхиляється від прямого курсу.
+        На Пн. Широті — правіше від напрямку польоту.
+      </div>
+      <div class="calc-formula">
+        a_коріоліс = −2(Ω × v)<br>
+        Бічна: a_z = 2Ω·(sinφ·vx − cosφ·vy·cosβ)<br>
+        де φ — широта, β — азимут польоту
+      </div>
+      <div class="calc-explain">
+        💡 На 500 км (Іскандер): дрейф ~200–500 м. На 2000 км (Кинджал): до 2–3 км.
+        Реальні системи наведення компенсують це.
+      </div>
+    </div>
+
+    <!-- ЕФЕКТ ЕОТВЕША -->
+    <div class="calc-block">
+      <div class="calc-block-title">🧭 Еотвеш Δh — <span style="color:#4dd0e1">${eotvosEl}</span></div>
+      <div class="calc-explain">
+        Ефект Еотвеша — вертикальна складова сили Коріоліса при русі Схід/Захід.
+        Якщо летиш на схід — здається, що гравітація менша (ракета "легше").
+        Якщо на захід — важче.
+      </div>
+      <div class="calc-formula">
+        Δg = 2Ω·cosφ·(vx·sinβ + vz·cosβ)<br>
+        Накопичений вертикальний зсув: Δh = ∫Δg dt²
+      </div>
+      <div class="calc-explain">
+        💡 Практичний ефект: кілька метрів на 100–500 км. Враховується в системах ІНС (інерційна навігація).
+      </div>
+    </div>
+
+    <!-- ФІЗИЧНІ ПАРАМЕТРИ -->
+    <div class="calc-block">
+      <div class="calc-block-title">⚙️ Поточні фізичні параметри симуляції</div>
+      <div class="calc-row">
+        <span class="calc-row-label">Гравітація (слайдер)</span>
+        <span class="calc-row-val">${grav.toFixed(2)} м/с²</span>
+      </div>
+      <div class="calc-row">
+        <span class="calc-row-label">Опір повітря (множник)</span>
+        <span class="calc-row-val">${drag.toFixed(1)}× ${drag === 0 ? '(вакуум!)' : drag < 0.5 ? '(розрідж.)' : drag > 1.5 ? '(густий)' : '(норма)'}</span>
+      </div>
+      <div class="calc-row">
+        <span class="calc-row-label">Маса снаряду (множник)</span>
+        <span class="calc-row-val">${mass.toFixed(1)}×${r ? ' = ' + (r.mass * mass).toFixed(0) + ' кг' : ''}</span>
+      </div>
+      ${r ? `
+      <div class="calc-row">
+        <span class="calc-row-label">Тяга двигуна</span>
+        <span class="calc-row-val">${(r.thrust/1000).toFixed(0)} кН</span>
+      </div>
+      <div class="calc-row">
+        <span class="calc-row-label">Паливо / горить</span>
+        <span class="calc-row-val">${r.mass - r.dryMass} кг / ${r.burnTime} с</span>
+      </div>
+      <div class="calc-row">
+        <span class="calc-row-label">Коефіцієнт опору Cd</span>
+        <span class="calc-row-val">${r.Cd} (базовий, ×Мах-фактор)</span>
+      </div>
+      <div class="calc-row">
+        <span class="calc-row-label">КВО (точність)</span>
+        <span class="calc-row-val">${r.cep} м</span>
+      </div>` : ''}
+    </div>
+  `;
+
+  document.getElementById('calcContent').innerHTML = html;
+  document.getElementById('calcOverlay').classList.add('show');
+
+  // Draggable
+  const modal = document.querySelector('.calc-modal');
+  if (modal && !modal._draggable) { makeDraggable(modal); modal._draggable = true; }
+}
+
+function hideCalcDetail(e) {
+  if (!e || e.target === document.getElementById('calcOverlay')) {
+    document.getElementById('calcOverlay').classList.remove('show');
+  }
 }
 
 // ============================================================
