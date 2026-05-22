@@ -2655,23 +2655,46 @@ function showOptimalModal() {
 
     document.getElementById('optConfirm').textContent = '✅ ПІДТВЕРДИТИ ВИБІР';
     document.getElementById('optConfirm').disabled = false;
+    document.getElementById('optConfirm').onclick = applyOptimal;
 
   } else {
-    // Жодна не долітає — фізично неможливо
+    // Жодна не долітає — показуємо варіанти включно з "пустити як є"
     const maxPossible = Math.max(...ROCKETS.map(r => r.maxRangeKm));
+    // Знаходимо ракету з найбільшою дальністю
+    const farthest = ROCKETS.reduce((a, b) => a.maxRangeKm > b.maxRangeKm ? a : b);
+    const { maxRange: farthestReach, optAngle: farthestAngle } =
+      findMaxRange(farthest, 9.81, 1.0, 1.0, {});
     html += `
       <div class="opt-warn">
-        ❌ <b>Відстань ${distKm} км перевищує максимальну дальність усіх ракет.</b><br><br>
-        Найдальша ракета (Томагавк) досягає лише <b>${maxPossible} км</b>.<br><br>
-        При стандартних умовах (g=9.81 м/с², опір повітря 1.0×) <b>фізично неможливо</b> запустити жодну ракету на таку відстань.<br><br>
-        💡 Що можна зробити:<br>
-        • Зменш відстань між точками<br>
-        • Зміни фізичні умови вручну (зменш гравітацію або опір)
+        ❌ <b>Ціль за межами дальності всіх ракет.</b><br><br>
+        Найдальша ракета <b>${farthest.icon} ${farthest.name}</b> долетить лише до
+        <b>${(farthestReach/1000).toFixed(0)} км</b> з <b>${distKm} км</b>.<br><br>
+        Не вистачає <b>${(dist/1000 - farthestReach/1000).toFixed(0)} км</b>.
+      </div>
+      <div style="background:rgba(255,152,0,0.08);border:1px solid #ff9800;border-radius:8px;padding:10px 12px;margin-bottom:6px;font-size:0.72rem;color:#c8d8f0">
+        🚀 <b>Можна все одно запустити</b> — ракета полетить на максимальну відстань і впаде по дорозі.<br>
+        Буде показано пошкодження у точці падіння.
       </div>
     `;
     selectedSolutionId = null;
-    document.getElementById('optConfirm').textContent = '✅ ПІДТВЕРДИТИ';
-    document.getElementById('optConfirm').disabled = true;
+    document.getElementById('optConfirm').textContent = `🚀 ПУСТИТИ ${farthest.icon} (впаде по дорозі)`;
+    document.getElementById('optConfirm').disabled = false;
+    document.getElementById('optConfirm').onclick = () => {
+      // Переключаємо на найдальшу ракету і запускаємо
+      ST.currentRocket = farthest;
+      document.querySelectorAll('.rocket-btn').forEach((b, i) => {
+        b.classList.toggle('active', ROCKETS[i].id === farthest.id);
+      });
+      updateSpecs();
+      gravSlider.value = 9.81;
+      document.getElementById('gravVal').textContent = '9.81';
+      dragSlider.value = 1.0;
+      document.getElementById('dragVal').textContent = '1.0';
+      massSlider.value = 1.0;
+      document.getElementById('massVal').textContent = '1.0';
+      closeOptimal();
+      doLaunch();
+    };
     document.getElementById('optRepointBtn').textContent = '🎯 ВИБРАТИ БЛИЖЧУ ЦІЛЬ';
     document.getElementById('optRepointBtn').style.flex = '2';
   }
