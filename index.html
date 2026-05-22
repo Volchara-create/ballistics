@@ -709,7 +709,7 @@
     }
     .ppo-frag-box b { color: #e74c3c; }
     .ppo-close {
-      width: 100%; margin-top: 12px; padding: 9px;
+      padding: 9px; flex: 1;
       background: rgba(10,16,32,0.8); border: 1px solid #1565c0;
       border-radius: 8px; color: #42a5f5; cursor: pointer;
       font-family: 'Courier New', monospace; font-size: 0.75rem; letter-spacing: 1px;
@@ -1055,7 +1055,15 @@
   <div class="ppo-modal">
     <h3>🛡️ АНАЛІЗ СИСТЕМ ППО</h3>
     <div id="ppoContent"></div>
-    <button class="ppo-close" onclick="document.getElementById('ppoOverlay').classList.remove('show')">✕ ЗАКРИТИ</button>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <a href="https://send.monobank.ua/jar/7kcin57bo4" target="_blank"
+         style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:7px;
+                border-radius:7px;text-decoration:none;background:rgba(255,152,0,0.08);
+                border:1px solid #ff9800;color:#ff9800;font-size:0.62rem;font-weight:700;letter-spacing:1px">
+        ☕ ПІДТРИМАТИ ПРОЕКТ
+      </a>
+      <button class="ppo-close" onclick="document.getElementById('ppoOverlay').classList.remove('show')">✕ ЗАКРИТИ</button>
+    </div>
   </div>
 </div>
 
