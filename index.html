@@ -2826,10 +2826,85 @@ document.querySelector('[onclick="resetAll()"]').addEventListener('click', () =>
 setMode('launch');
 setTimeout(showTutorial, 600);
 
+// Авто-показ ППО позицій при старті
+defenseSitesVisible = true;
+const _sitesBtn = document.getElementById('toggleSitesBtn');
+_sitesBtn.style.borderColor = '#42a5f5';
+_sitesBtn.style.color = '#e0f8ff';
+_sitesBtn.textContent = '🛡️ СХОВАТИ ППО';
+_sitesBtn.style.background = 'rgba(21,101,192,0.2)';
+document.getElementById('toggleRangesBtn').disabled = false;
+renderDefenseSites();
+
 // На мобільному — починаємо з розгорнутою панеллю
 if (window.innerWidth <= 768) {
   expandPanel();
 }
+
+// ============================================================
+// DRAGGABLE МОДАЛЬНІ ВІКНА
+// ============================================================
+function makeDraggable(modalEl) {
+  let isDragging = false, startX, startY, initLeft, initTop;
+
+  // Знайти заголовок (h3) як handle
+  const handle = modalEl.querySelector('h3');
+  if (!handle) return;
+  handle.style.cursor = 'move';
+  handle.style.userSelect = 'none';
+
+  // Позиціонувати модалку абсолютно
+  function initPos() {
+    const rect = modalEl.getBoundingClientRect();
+    modalEl.style.position = 'fixed';
+    modalEl.style.left = rect.left + 'px';
+    modalEl.style.top  = rect.top  + 'px';
+    modalEl.style.margin = '0';
+    modalEl.style.transform = 'none';
+  }
+
+  handle.addEventListener('mousedown', e => {
+    initPos();
+    isDragging = true;
+    startX = e.clientX;
+    startY = e.clientY;
+    initLeft = parseInt(modalEl.style.left) || 0;
+    initTop  = parseInt(modalEl.style.top)  || 0;
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', e => {
+    if (!isDragging) return;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    modalEl.style.left = (initLeft + dx) + 'px';
+    modalEl.style.top  = (initTop  + dy) + 'px';
+  });
+
+  document.addEventListener('mouseup', () => { isDragging = false; });
+
+  // Подвійний клік на заголовку — розгорнути/відновити
+  handle.addEventListener('dblclick', () => {
+    if (modalEl.dataset.expanded === '1') {
+      modalEl.style.width   = '';
+      modalEl.style.maxHeight = '';
+      modalEl.style.height  = '';
+      modalEl.dataset.expanded = '0';
+    } else {
+      modalEl.style.width   = '92vw';
+      modalEl.style.maxHeight = '90vh';
+      modalEl.style.left    = '4vw';
+      modalEl.style.top     = '5vh';
+      modalEl.dataset.expanded = '1';
+    }
+  });
+  handle.title = 'Перетягни мишкою · Подвійний клік — на весь екран';
+}
+
+['opt-modal','impact-modal','ppo-modal','tut-modal'].forEach(cls => {
+  const el = document.querySelector('.' + cls);
+  if (el) makeDraggable(el);
+});
 </script>
 </body>
 </html>
